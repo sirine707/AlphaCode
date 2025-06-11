@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 interface DeployPanelProps {
@@ -36,6 +37,47 @@ COPY . .
 RUN pip install -r requirements.txt
 CMD ["python", "app.py"]`;
 
+const initialDeploymentYaml = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app-container
+        image: your-username/my-app:latest # Replace with your image
+        ports:
+        - containerPort: 80`;
+
+const initialServiceYaml = `apiVersion: v1
+kind: Service
+metadata:
+  name: my-app-service
+spec:
+  selector:
+    app: my-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer`;
+
+
+const k8sClusters = [
+    { id: 'minikube', label: 'Minikube (Local)' },
+    { id: 'gke-us-central1-a', label: 'GKE (us-central1-a)' },
+    { id: 'eks-eu-west-1', label: 'EKS (eu-west-1)' },
+    { id: 'custom-kubeconfig', label: 'Custom Kubeconfig' },
+];
+
 const DeployPanel: React.FC<DeployPanelProps> = ({ isOpen }) => {
   const [selectedCloud, setSelectedCloud] = useState<string>('aws');
   const [selectedResources, setSelectedResources] = useState<Record<string, boolean>>({
@@ -53,6 +95,12 @@ const DeployPanel: React.FC<DeployPanelProps> = ({ isOpen }) => {
   const [dockerHubUsername, setDockerHubUsername] = useState<string>('');
   const [dockerHubPassword, setDockerHubPassword] = useState<string>('');
   const [imageName, setImageName] = useState<string>('your-username/my-app:latest');
+
+  const [selectedK8sCluster, setSelectedK8sCluster] = useState<string>('minikube');
+  const [deploymentYaml, setDeploymentYaml] = useState<string>(initialDeploymentYaml);
+  const [serviceYaml, setServiceYaml] = useState<string>(initialServiceYaml);
+  const [activeK8sYamlView, setActiveK8sYamlView] = useState<'deployment' | 'service' | null>(null);
+  const [currentK8sYaml, setCurrentK8sYaml] = useState<string>('// Select a YAML file type to view/edit.');
 
 
   const handleResourceChange = (resourceId: string) => {
@@ -211,10 +259,61 @@ ${selectedResources.storageBucket ? `
       }
     }, 600);
   };
+
+  const handleSelectK8sYaml = (type: 'deployment' | 'service') => {
+    setActiveK8sYamlView(type);
+    if (type === 'deployment') {
+      setCurrentK8sYaml(deploymentYaml);
+    } else if (type === 'service') {
+      setCurrentK8sYaml(serviceYaml);
+    }
+  };
+
+  const handleK8sYamlChange = (content: string) => {
+    setCurrentK8sYaml(content);
+    if (activeK8sYamlView === 'deployment') {
+      setDeploymentYaml(content);
+    } else if (activeK8sYamlView === 'service') {
+      setServiceYaml(content);
+    }
+  };
+  
+  const handleApplyKubernetesConfig = () => {
+    setCurrentOperation('Kubernetes Deployment');
+    setLogs(`Starting Kubernetes deployment to ${selectedK8sCluster}...\n`);
+    setShowLogs(true);
+    let currentLogs = `Starting Kubernetes deployment to ${selectedK8sCluster}...\n`;
+    currentLogs += `Deployment YAML:\n${deploymentYaml}\n\nService YAML:\n${serviceYaml}\n\n`;
+
+    const logQueue = [
+      `Connecting to cluster: ${selectedK8sCluster}...`,
+      'Successfully connected to cluster.',
+      'Applying deployment.yaml...',
+      'deployment.apps/my-app-deployment created (simulated)',
+      'Applying service.yaml...',
+      'service/my-app-service created (simulated)',
+      'Waiting for resources to be ready...',
+      'All resources ready.',
+      'Kubernetes deployment successful.'
+    ];
+    
+    let logIndex = 0;
+    const intervalId = setInterval(() => {
+      if (logIndex < logQueue.length) {
+        currentLogs += `${logQueue[logIndex]}\n`;
+        setLogs(currentLogs);
+        logIndex++;
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 600);
+  };
   
   useEffect(() => {
     if (!isOpen) {
       setShowLogs(false);
+      setActiveK8sYamlView(null);
+      setCurrentK8sYaml('// Select a YAML file type to view/edit.');
     }
   }, [isOpen]);
 
@@ -333,6 +432,54 @@ ${selectedResources.storageBucket ? `
                 <Button onClick={handlePushImage} size="sm" className="w-full text-xs h-7">Push Image</Button>
               </CardContent>
             </Card>
+
+            <Card className="shadow-none border-border/50">
+              <CardHeader className="p-3">
+                <CardTitle className="text-sm font-medium">Kubernetes</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 p-3">
+                <div>
+                  <Label htmlFor="k8sCluster" className="text-xs font-medium mb-1.5 block text-muted-foreground">Select Cluster</Label>
+                  <Select value={selectedK8sCluster} onValueChange={setSelectedK8sCluster}>
+                    <SelectTrigger id="k8sCluster" className="text-xs h-8">
+                      <SelectValue placeholder="Select a K8s cluster" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {k8sClusters.map((cluster) => (
+                        <SelectItem key={cluster.id} value={cluster.id} className="text-xs">
+                          {cluster.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex space-x-2">
+                    <Button 
+                        variant={activeK8sYamlView === 'deployment' ? 'default' : 'outline'} 
+                        size="sm" 
+                        className="text-xs h-7 flex-1" 
+                        onClick={() => handleSelectK8sYaml('deployment')}>
+                        Deployment.yaml
+                    </Button>
+                    <Button 
+                        variant={activeK8sYamlView === 'service' ? 'default' : 'outline'} 
+                        size="sm" 
+                        className="text-xs h-7 flex-1" 
+                        onClick={() => handleSelectK8sYaml('service')}>
+                        Service.yaml
+                    </Button>
+                </div>
+                <Textarea
+                  value={currentK8sYaml}
+                  onChange={(e) => handleK8sYamlChange(e.target.value)}
+                  className="h-48 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
+                  rows={10}
+                  aria-label="Editable Kubernetes YAML"
+                  disabled={!activeK8sYamlView}
+                />
+                <Button onClick={handleApplyKubernetesConfig} size="sm" className="w-full text-xs h-7">Apply Kubernetes Configuration</Button>
+              </CardContent>
+            </Card>
             
             {showLogs && (
               <Card className="shadow-none border-border/50">
@@ -358,4 +505,6 @@ ${selectedResources.storageBucket ? `
 };
 
 export default DeployPanel;
+    
+
     
