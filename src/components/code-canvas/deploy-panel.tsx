@@ -91,9 +91,6 @@ const DeployPanel: React.FC<DeployPanelProps> = ({ isOpen }) => {
   });
   const [iacCode, setIacCode] = useState<string>('// Click "Generate & Save" to see IaC output.');
   const [dockerfileContent, setDockerfileContent] = useState<string>(initialDockerfileContent);
-  const [logs, setLogs] = useState<string>('');
-  const [showLogs, setShowLogs] = useState<boolean>(false);
-  const [currentOperation, setCurrentOperation] = useState<string | null>(null);
 
   const [dockerHubUsername, setDockerHubUsername] = useState<string>('');
   const [dockerHubPassword, setDockerHubPassword] = useState<string>('');
@@ -169,124 +166,37 @@ ${selectedResources.storageBucket ? `
 # resource "aws_s3_bucket" "example_bucket" { ... } # Placeholder
 ` : ''}
     `.trim());
-    setLogs('Generated and saved IaC to main.tf (simulated).\n');
-    setShowLogs(true);
-    setCurrentOperation('IaC Generation');
+    // Log simulation removed
+    console.log('Generated and saved IaC to main.tf (simulated).');
   };
 
   const handleProvisionInfrastructure = () => {
-    setCurrentOperation('Infrastructure Provisioning');
-    setLogs(`Starting infrastructure provisioning for ${selectedCloud.toUpperCase()}...\n`);
-    setShowLogs(true);
-    let currentLogs = `Starting infrastructure provisioning for ${selectedCloud.toUpperCase()}...\n`;
-    currentLogs += `Using IaC:\n${iacCode}\n\n`;
-    
-    const logQueue = [
-      'Authenticating with cloud provider...',
-      'Provider authenticated.',
-      'Initializing Terraform...',
-      'Terraform initialized.',
-      'Planning changes...',
-      'Plan successful. Applying changes...',
-      ...(selectedResources.vm ? ['Provisioning VM...','VM provisioned.'] : []),
-      ...(selectedResources.loadBalancer ? ['Provisioning Load Balancer...','Load Balancer provisioned.'] : []),
-      ...(selectedResources.managedDb ? ['Provisioning Managed DB...','Managed DB provisioned.'] : []),
-      ...(selectedResources.storageBucket ? ['Provisioning Storage Bucket...','Storage Bucket provisioned.'] : []),
-      'Applying final configurations...',
-      'Infrastructure provisioning complete.'
-    ];
-
-    let logIndex = 0;
-    const intervalId = setInterval(() => {
-      if (logIndex < logQueue.length) {
-        currentLogs += `${logQueue[logIndex]}\n`;
-        setLogs(currentLogs);
-        logIndex++;
-      } else {
-        clearInterval(intervalId);
-      }
-    }, 700);
+    // Log simulation removed
+    console.log(`Starting infrastructure provisioning for ${selectedCloud.toUpperCase()}...`);
+    console.log(`Using IaC:\n${iacCode}\n`);
+    // Simulate provisioning steps
+    console.log('Authenticating with cloud provider...');
+    console.log('Provider authenticated.');
+    // ... other simulated steps
+    console.log('Infrastructure provisioning complete.');
   };
 
   const handleBuildDockerImage = () => {
-    setCurrentOperation('Docker Image Build');
-    setLogs(`Starting Docker image build...\n`);
-    setShowLogs(true);
-    let currentLogs = `Starting Docker image build...\n`;
-    currentLogs += `Using Dockerfile:\n${dockerfileContent}\n\n`;
-
-    const logQueue = [
-      'Connecting to Docker daemon...',
-      'Connected to Docker daemon.',
-      'Sending build context to Docker daemon...',
-      'Step 1/5 : FROM python:3.10-slim',
-      ' ---> Using cache',
-      ' ---> abcdef123456',
-      'Step 2/5 : WORKDIR /app',
-      ' ---> Using cache',
-      ' ---> 123456abcdef',
-      'Step 3/5 : COPY . .',
-      ' ---> Using cache',
-      ' ---> fedcba654321',
-      'Step 4/5 : RUN pip install -r requirements.txt',
-      ' ---> Running in deadbeef1234',
-      'Collecting ... (simulated)',
-      'Successfully installed ...',
-      'Removing intermediate container deadbeef1234',
-      ' ---> 001122334455',
-      'Step 5/5 : CMD ["python", "app.py"]',
-      ' ---> Running in 554433221100',
-      'Removing intermediate container 554433221100',
-      ' ---> aabbccddeeff',
-      'Successfully built aabbccddeeff',
-      `Successfully tagged ${imageName || 'my-app:latest'}`,
-      'Docker image build complete.',
-    ];
-
-    let logIndex = 0;
-    const intervalId = setInterval(() => {
-      if (logIndex < logQueue.length) {
-        currentLogs += `${logQueue[logIndex]}\n`;
-        setLogs(currentLogs);
-        logIndex++;
-      } else {
-        clearInterval(intervalId);
-      }
-    }, 500);
+    // Log simulation removed
+    console.log('Starting Docker image build...');
+    console.log(`Using Dockerfile:\n${dockerfileContent}\n`);
+    // Simulate build steps
+    console.log('Connecting to Docker daemon...');
+    console.log('Docker image build complete.');
   };
 
   const handlePushImage = () => {
-    setCurrentOperation('Docker Image Push');
-    setLogs(`Starting Docker image push for ${imageName}...\n`);
-    setShowLogs(true);
-    let currentLogs = `Starting Docker image push for ${imageName}...\n`;
-    currentLogs += `Username: ${dockerHubUsername}\n`;
-
-    const logQueue = [
-      `Authenticating with Docker Hub as ${dockerHubUsername}...`,
-      'Login Succeeded.',
-      `Pushing image ${imageName}...`,
-      'The push refers to repository [docker.io/your-username/my-app]',
-      'layer1: Pushed',
-      'layer2: Pushed',
-      'layer3: Pushed',
-      'layer4: Pushing [===>                                               ]  5.5MB/100MB',
-      'layer4: Pushing [=========>                                         ] 15.5MB/100MB',
-      'layer4: Pushed',
-      'latest: digest: sha256:abcdef1234567890abcdef1234567890 size: 1234',
-      'Image push complete.',
-    ];
-
-    let logIndex = 0;
-    const intervalId = setInterval(() => {
-      if (logIndex < logQueue.length) {
-        currentLogs += `${logQueue[logIndex]}\n`;
-        setLogs(currentLogs);
-        logIndex++;
-      } else {
-        clearInterval(intervalId);
-      }
-    }, 600);
+    // Log simulation removed
+    console.log(`Starting Docker image push for ${imageName}...`);
+    console.log(`Username: ${dockerHubUsername}`);
+    // Simulate push steps
+    console.log(`Authenticating with Docker Hub as ${dockerHubUsername}...`);
+    console.log('Image push complete.');
   };
 
   const handleSelectK8sYaml = (type: 'deployment' | 'service') => {
@@ -308,39 +218,16 @@ ${selectedResources.storageBucket ? `
   };
   
   const handleApplyKubernetesConfig = () => {
-    setCurrentOperation('Kubernetes Deployment');
-    setLogs(`Starting Kubernetes deployment to ${selectedK8sCluster}...\n`);
-    setShowLogs(true);
-    let currentLogs = `Starting Kubernetes deployment to ${selectedK8sCluster}...\n`;
-    currentLogs += `Deployment YAML:\n${deploymentYaml}\n\nService YAML:\n${serviceYaml}\n\n`;
-
-    const logQueue = [
-      `Connecting to cluster: ${selectedK8sCluster}...`,
-      'Successfully connected to cluster.',
-      'Applying deployment.yaml...',
-      'deployment.apps/my-app-deployment created (simulated)',
-      'Applying service.yaml...',
-      'service/my-app-service created (simulated)',
-      'Waiting for resources to be ready...',
-      'All resources ready.',
-      'Kubernetes deployment successful.'
-    ];
-    
-    let logIndex = 0;
-    const intervalId = setInterval(() => {
-      if (logIndex < logQueue.length) {
-        currentLogs += `${logQueue[logIndex]}\n`;
-        setLogs(currentLogs);
-        logIndex++;
-      } else {
-        clearInterval(intervalId);
-      }
-    }, 600);
+    // Log simulation removed
+    console.log(`Starting Kubernetes deployment to ${selectedK8sCluster}...`);
+    console.log(`Deployment YAML:\n${deploymentYaml}\n\nService YAML:\n${serviceYaml}\n`);
+    // Simulate deployment steps
+    console.log(`Connecting to cluster: ${selectedK8sCluster}...`);
+    console.log('Kubernetes deployment successful.');
   };
   
   useEffect(() => {
     if (!isOpen) {
-      setShowLogs(false);
       setActiveK8sYamlView(null);
       setCurrentK8sYaml('// Select a YAML file type to view/edit.');
     }
@@ -608,22 +495,6 @@ ${selectedResources.storageBucket ? `
               )}
             </Card>
             
-            {showLogs && (
-              <Card className="shadow-none border-border/50">
-                <CardHeader className="p-3">
-                  <CardTitle className="text-sm font-medium">Logs: {currentOperation || 'Operations'}</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3">
-                  <Textarea
-                    readOnly
-                    value={logs}
-                    className="h-40 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
-                    rows={8}
-                    aria-label="Operation Logs"
-                  />
-                </CardContent>
-              </Card>
-            )}
           </div>
         </ScrollArea>
       )}
@@ -632,6 +503,8 @@ ${selectedResources.storageBucket ? `
 };
 
 export default DeployPanel;
+    
+
     
 
     
