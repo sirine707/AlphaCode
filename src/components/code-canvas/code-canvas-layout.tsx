@@ -5,28 +5,45 @@ import React, { useState, useCallback } from 'react';
 import ActivityBar from './activity-bar';
 import FileExplorerPanel, { type FileItem } from './file-explorer-panel';
 import EditorWorkspace from './editor-workspace';
-import TitleBar from './title-bar'; // Import the new TitleBar
+import TitleBar from './title-bar';
+import DeployPanel from './deploy-panel'; // Import the new DeployPanel
+
+export type ActiveView = 'explorer' | 'source-control' | 'extensions' | 'deploy' | 'settings' | null;
 
 const CodeCanvasLayout: React.FC = () => {
-  const [isExplorerOpen, setIsExplorerOpen] = useState(true);
+  const [activeView, setActiveView] = useState<ActiveView>('explorer');
+  const [isSidePanelVisible, setIsSidePanelVisible] = useState(true);
+
   const [openFiles, setOpenFiles] = useState<FileItem[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
 
-  const toggleExplorer = () => {
-    setIsExplorerOpen(!isExplorerOpen);
-  };
+  const handleViewChange = useCallback((viewId: ActiveView) => {
+    if (activeView === viewId) {
+      setIsSidePanelVisible(prev => !prev);
+    } else {
+      setActiveView(viewId);
+      setIsSidePanelVisible(true); // Always open panel when switching to a new view
+    }
+  }, [activeView]);
+
 
   const handleOpenFile = useCallback((file: FileItem) => {
     if (file.type === 'file') {
       setOpenFiles((prevOpenFiles) => {
         if (prevOpenFiles.find(f => f.path === file.path)) {
-          return prevOpenFiles; // File already open
+          setActiveFilePath(file.path); // Set as active if already open
+          return prevOpenFiles;
         }
         return [...prevOpenFiles, file];
       });
       setActiveFilePath(file.path);
+      // If a panel like deploy was open, switch back to explorer or editor focus
+      if (activeView !== 'explorer' && activeView !== null) {
+         // setActiveView(null); // Or 'explorer' if you want explorer to pop back
+         // setIsSidePanelVisible(false); // Consider if side panel should auto-close
+      }
     }
-  }, []);
+  }, [activeView]);
 
   const handleCloseFile = useCallback((filePathToClose: string) => {
     setOpenFiles((prevOpenFiles) => {
@@ -39,7 +56,6 @@ const CodeCanvasLayout: React.FC = () => {
         if (updatedOpenFiles.length === 0) {
           setActiveFilePath(null);
         } else {
-          // Try to set the next tab as active, or the previous one if it was the last
           const newActiveIndex = Math.max(0, Math.min(fileIndex, updatedOpenFiles.length - 1));
           setActiveFilePath(updatedOpenFiles[newActiveIndex]?.path || null);
         }
@@ -55,9 +71,25 @@ const CodeCanvasLayout: React.FC = () => {
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-code">
       <TitleBar />
-      <div className="flex flex-1 overflow-hidden"> {/* Main content area */}
-        <ActivityBar onToggleExplorer={toggleExplorer} isExplorerOpen={isExplorerOpen} />
-        <FileExplorerPanel isOpen={isExplorerOpen} onOpenFile={handleOpenFile} />
+      <div className="flex flex-1 overflow-hidden">
+        <ActivityBar
+          activeViewId={activeView}
+          onViewChange={handleViewChange}
+          isSidePanelOpen={isSidePanelVisible}
+        />
+        {activeView === 'explorer' && (
+          <FileExplorerPanel isOpen={isSidePanelVisible} onOpenFile={handleOpenFile} />
+        )}
+        {activeView === 'deploy' && (
+          <DeployPanel isOpen={isSidePanelVisible} />
+        )}
+        {/* Placeholder for other views like source-control, extensions, settings */}
+        {(activeView !== 'explorer' && activeView !== 'deploy' && isSidePanelVisible && activeView !== null) && (
+            <div className="w-64 h-full bg-card p-4 border-r border-border">
+                <p className="text-sm text-muted-foreground">Panel for: {activeView}</p>
+                <p className="text-xs mt-2">This is a placeholder. Implement actual panel content.</p>
+            </div>
+        )}
         <EditorWorkspace
           openFiles={openFiles}
           activeFilePath={activeFilePath}
