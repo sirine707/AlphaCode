@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DeployPanelProps {
@@ -78,6 +79,8 @@ const k8sClusters = [
     { id: 'custom-kubeconfig', label: 'Custom Kubeconfig' },
 ];
 
+type CollapsibleSectionName = 'infrastructure' | 'dockerize' | 'dockerHub' | 'kubernetes';
+
 const DeployPanel: React.FC<DeployPanelProps> = ({ isOpen }) => {
   const [selectedCloud, setSelectedCloud] = useState<string>('aws');
   const [selectedResources, setSelectedResources] = useState<Record<string, boolean>>({
@@ -116,6 +119,17 @@ const DeployPanel: React.FC<DeployPanelProps> = ({ isOpen }) => {
   // GCP Credentials
   const [gcpProjectId, setGcpProjectId] = useState<string>('');
   const [gcpJsonKey, setGcpJsonKey] = useState<string>('');
+
+  const [openSections, setOpenSections] = useState<Record<CollapsibleSectionName, boolean>>({
+    infrastructure: true,
+    dockerize: false,
+    dockerHub: false,
+    kubernetes: false,
+  });
+
+  const toggleSection = (sectionName: CollapsibleSectionName) => {
+    setOpenSections(prev => ({ ...prev, [sectionName]: !prev[sectionName] }));
+  };
 
 
   const handleResourceChange = (resourceId: string) => {
@@ -343,211 +357,255 @@ ${selectedResources.storageBucket ? `
         <ScrollArea className="h-full">
           <div className="flex flex-col space-y-4">
             <Card className="shadow-none border-border/50">
-              <CardHeader className="p-3">
+              <CardHeader
+                className="p-3 flex flex-row items-center justify-between cursor-pointer"
+                onClick={() => toggleSection('infrastructure')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleSection('infrastructure')}
+                aria-expanded={openSections.infrastructure}
+                aria-controls="infrastructure-content"
+              >
                 <CardTitle className="text-sm font-medium">Infrastructure</CardTitle>
+                {openSections.infrastructure ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </CardHeader>
-              <CardContent className="space-y-3 p-3">
-                <div>
-                  <Label className="text-xs font-medium mb-1.5 block text-muted-foreground">Select Cloud Provider</Label>
-                  <RadioGroup value={selectedCloud} onValueChange={setSelectedCloud} className="flex flex-wrap gap-x-3 gap-y-1.5">
-                    {cloudProviders.map((provider) => (
-                      <div key={provider.id} className="flex items-center space-x-1.5">
-                        <RadioGroupItem value={provider.id} id={`cloud-${provider.id}`} className="w-3.5 h-3.5"/>
-                        <Label htmlFor={`cloud-${provider.id}`} className="text-xs font-normal cursor-pointer">{provider.label}</Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                </div>
-
-                {selectedCloud === 'aws' && (
-                  <div className="space-y-2 pt-2 border-t border-border/30 mt-3">
-                    <Label className="text-xs font-semibold text-foreground">AWS Credentials</Label>
-                    <div>
-                      <Label htmlFor="awsAccessKey" className="text-xs font-medium mb-1 block text-muted-foreground">Access Key ID</Label>
-                      <Input id="awsAccessKey" value={awsAccessKey} onChange={(e) => setAwsAccessKey(e.target.value)} placeholder="AKIAIOSFODNN7EXAMPLE" className="text-xs h-8"/>
-                    </div>
-                    <div>
-                      <Label htmlFor="awsSecretKey" className="text-xs font-medium mb-1 block text-muted-foreground">Secret Access Key</Label>
-                      <Input id="awsSecretKey" type="password" value={awsSecretKey} onChange={(e) => setAwsSecretKey(e.target.value)} placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" className="text-xs h-8"/>
-                    </div>
-                    <div>
-                      <Label htmlFor="awsRegion" className="text-xs font-medium mb-1 block text-muted-foreground">Default Region</Label>
-                      <Input id="awsRegion" value={awsRegion} onChange={(e) => setAwsRegion(e.target.value)} placeholder="us-east-1" className="text-xs h-8"/>
-                    </div>
-                  </div>
-                )}
-
-                {selectedCloud === 'azure' && (
-                  <div className="space-y-2 pt-2 border-t border-border/30 mt-3">
-                    <Label className="text-xs font-semibold text-foreground">Azure Credentials</Label>
-                    <div>
-                      <Label htmlFor="azureClientId" className="text-xs font-medium mb-1 block text-muted-foreground">Client ID</Label>
-                      <Input id="azureClientId" value={azureClientId} onChange={(e) => setAzureClientId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="text-xs h-8"/>
-                    </div>
-                    <div>
-                      <Label htmlFor="azureClientSecret" className="text-xs font-medium mb-1 block text-muted-foreground">Client Secret</Label>
-                      <Input id="azureClientSecret" type="password" value={azureClientSecret} onChange={(e) => setAzureClientSecret(e.target.value)} placeholder="Enter Client Secret" className="text-xs h-8"/>
-                    </div>
-                    <div>
-                      <Label htmlFor="azureTenantId" className="text-xs font-medium mb-1 block text-muted-foreground">Tenant ID</Label>
-                      <Input id="azureTenantId" value={azureTenantId} onChange={(e) => setAzureTenantId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="text-xs h-8"/>
-                    </div>
-                    <div>
-                      <Label htmlFor="azureSubscriptionId" className="text-xs font-medium mb-1 block text-muted-foreground">Subscription ID</Label>
-                      <Input id="azureSubscriptionId" value={azureSubscriptionId} onChange={(e) => setAzureSubscriptionId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="text-xs h-8"/>
-                    </div>
-                  </div>
-                )}
-
-                {selectedCloud === 'gcp' && (
-                  <div className="space-y-2 pt-2 border-t border-border/30 mt-3">
-                    <Label className="text-xs font-semibold text-foreground">GCP Credentials</Label>
-                    <div>
-                      <Label htmlFor="gcpProjectId" className="text-xs font-medium mb-1 block text-muted-foreground">Project ID</Label>
-                      <Input id="gcpProjectId" value={gcpProjectId} onChange={(e) => setGcpProjectId(e.target.value)} placeholder="your-gcp-project-id" className="text-xs h-8"/>
-                    </div>
-                    <div>
-                      <Label htmlFor="gcpJsonKey" className="text-xs font-medium mb-1 block text-muted-foreground">JSON Key Content (Service Account)</Label>
-                      <Textarea id="gcpJsonKey" value={gcpJsonKey} onChange={(e) => setGcpJsonKey(e.target.value)} placeholder='{ "type": "service_account", ... }' className="text-xs h-24 bg-background/30 border-border/70 font-code leading-relaxed"/>
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-2 border-t border-border/30 mt-3">
-                  <Label className="text-xs font-medium mb-1.5 block text-muted-foreground">Resources</Label>
-                  <div className="space-y-1.5">
-                    {resourcesList.map((resource) => (
-                      <div key={resource.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`resource-${resource.id}`}
-                          checked={!!selectedResources[resource.id]}
-                          onCheckedChange={() => handleResourceChange(resource.id)}
-                          className="w-3.5 h-3.5"
-                        />
-                        <Label htmlFor={`resource-${resource.id}`} className="text-xs font-normal cursor-pointer">
-                          {resource.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                 <Textarea
-                  readOnly
-                  value={iacCode}
-                  className="h-36 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
-                  rows={8}
-                  aria-label="Infrastructure as Code Output"
-                />
-                <div className="flex flex-col space-y-1.5">
-                    <Button onClick={handleGenerateIac} size="sm" className="text-xs h-7">Generate & Save as main.tf</Button>
-                    <Button onClick={handleProvisionInfrastructure} variant="outline" size="sm" className="text-xs h-7">Provision Infrastructure</Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-none border-border/50">
-              <CardHeader className="p-3">
-                <CardTitle className="text-sm font-medium">Dockerize</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 p-3">
-                 <Label className="text-xs font-medium mb-1.5 block text-muted-foreground">Dockerfile</Label>
-                <Textarea
-                  value={dockerfileContent}
-                  onChange={(e) => setDockerfileContent(e.target.value)}
-                  className="h-48 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
-                  rows={10}
-                  aria-label="Editable Dockerfile"
-                />
-                <Button onClick={handleBuildDockerImage} size="sm" className="w-full text-xs h-7">Build Docker Image</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-none border-border/50">
-              <CardHeader className="p-3">
-                <CardTitle className="text-sm font-medium">Docker Hub</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 p-3">
-                <div>
-                  <Label htmlFor="dockerHubUser" className="text-xs font-medium mb-1.5 block text-muted-foreground">Docker Hub Username</Label>
-                  <Input
-                    id="dockerHubUser"
-                    value={dockerHubUsername}
-                    onChange={(e) => setDockerHubUsername(e.target.value)}
-                    placeholder="e.g., yourusername"
-                    className="text-xs h-8"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="dockerHubPass" className="text-xs font-medium mb-1.5 block text-muted-foreground">Docker Hub Password/Token</Label>
-                  <Input
-                    id="dockerHubPass"
-                    type="password"
-                    value={dockerHubPassword}
-                    onChange={(e) => setDockerHubPassword(e.target.value)}
-                    placeholder="Enter your password or token"
-                    className="text-xs h-8"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="imageName" className="text-xs font-medium mb-1.5 block text-muted-foreground">Image Name</Label>
-                  <Input
-                    id="imageName"
-                    value={imageName}
-                    onChange={(e) => setImageName(e.target.value)}
-                    placeholder="e.g., your-username/my-app:latest"
-                    className="text-xs h-8"
-                  />
-                </div>
-                <Button onClick={handlePushImage} size="sm" className="w-full text-xs h-7">Push Image</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-none border-border/50">
-              <CardHeader className="p-3">
-                <CardTitle className="text-sm font-medium">Kubernetes</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 p-3">
-                <div>
-                  <Label htmlFor="k8sCluster" className="text-xs font-medium mb-1.5 block text-muted-foreground">Select Cluster</Label>
-                  <Select value={selectedK8sCluster} onValueChange={setSelectedK8sCluster}>
-                    <SelectTrigger id="k8sCluster" className="text-xs h-8">
-                      <SelectValue placeholder="Select a K8s cluster" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {k8sClusters.map((cluster) => (
-                        <SelectItem key={cluster.id} value={cluster.id} className="text-xs">
-                          {cluster.label}
-                        </SelectItem>
+              {openSections.infrastructure && (
+                <CardContent className="space-y-3 p-3 pt-0" id="infrastructure-content">
+                  <div>
+                    <Label className="text-xs font-medium mb-1.5 block text-muted-foreground">Select Cloud Provider</Label>
+                    <RadioGroup value={selectedCloud} onValueChange={setSelectedCloud} className="flex flex-wrap gap-x-3 gap-y-1.5">
+                      {cloudProviders.map((provider) => (
+                        <div key={provider.id} className="flex items-center space-x-1.5">
+                          <RadioGroupItem value={provider.id} id={`cloud-${provider.id}`} className="w-3.5 h-3.5"/>
+                          <Label htmlFor={`cloud-${provider.id}`} className="text-xs font-normal cursor-pointer">{provider.label}</Label>
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex space-x-2">
-                    <Button 
-                        variant={activeK8sYamlView === 'deployment' ? 'default' : 'outline'} 
-                        size="sm" 
-                        className="text-xs h-7 flex-1" 
-                        onClick={() => handleSelectK8sYaml('deployment')}>
-                        Deployment.yaml
-                    </Button>
-                    <Button 
-                        variant={activeK8sYamlView === 'service' ? 'default' : 'outline'} 
-                        size="sm" 
-                        className="text-xs h-7 flex-1" 
-                        onClick={() => handleSelectK8sYaml('service')}>
-                        Service.yaml
-                    </Button>
-                </div>
-                <Textarea
-                  value={currentK8sYaml}
-                  onChange={(e) => handleK8sYamlChange(e.target.value)}
-                  className="h-48 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
-                  rows={10}
-                  aria-label="Editable Kubernetes YAML"
-                  disabled={!activeK8sYamlView}
-                />
-                <Button onClick={handleApplyKubernetesConfig} size="sm" className="w-full text-xs h-7">Apply Kubernetes Configuration</Button>
-              </CardContent>
+                    </RadioGroup>
+                  </div>
+
+                  {selectedCloud === 'aws' && (
+                    <div className="space-y-2 pt-2 border-t border-border/30 mt-3">
+                      <Label className="text-xs font-semibold text-foreground">AWS Credentials</Label>
+                      <div>
+                        <Label htmlFor="awsAccessKey" className="text-xs font-medium mb-1 block text-muted-foreground">Access Key ID</Label>
+                        <Input id="awsAccessKey" value={awsAccessKey} onChange={(e) => setAwsAccessKey(e.target.value)} placeholder="AKIAIOSFODNN7EXAMPLE" className="text-xs h-8"/>
+                      </div>
+                      <div>
+                        <Label htmlFor="awsSecretKey" className="text-xs font-medium mb-1 block text-muted-foreground">Secret Access Key</Label>
+                        <Input id="awsSecretKey" type="password" value={awsSecretKey} onChange={(e) => setAwsSecretKey(e.target.value)} placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" className="text-xs h-8"/>
+                      </div>
+                      <div>
+                        <Label htmlFor="awsRegion" className="text-xs font-medium mb-1 block text-muted-foreground">Default Region</Label>
+                        <Input id="awsRegion" value={awsRegion} onChange={(e) => setAwsRegion(e.target.value)} placeholder="us-east-1" className="text-xs h-8"/>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedCloud === 'azure' && (
+                    <div className="space-y-2 pt-2 border-t border-border/30 mt-3">
+                      <Label className="text-xs font-semibold text-foreground">Azure Credentials</Label>
+                      <div>
+                        <Label htmlFor="azureClientId" className="text-xs font-medium mb-1 block text-muted-foreground">Client ID</Label>
+                        <Input id="azureClientId" value={azureClientId} onChange={(e) => setAzureClientId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="text-xs h-8"/>
+                      </div>
+                      <div>
+                        <Label htmlFor="azureClientSecret" className="text-xs font-medium mb-1 block text-muted-foreground">Client Secret</Label>
+                        <Input id="azureClientSecret" type="password" value={azureClientSecret} onChange={(e) => setAzureClientSecret(e.target.value)} placeholder="Enter Client Secret" className="text-xs h-8"/>
+                      </div>
+                      <div>
+                        <Label htmlFor="azureTenantId" className="text-xs font-medium mb-1 block text-muted-foreground">Tenant ID</Label>
+                        <Input id="azureTenantId" value={azureTenantId} onChange={(e) => setAzureTenantId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="text-xs h-8"/>
+                      </div>
+                      <div>
+                        <Label htmlFor="azureSubscriptionId" className="text-xs font-medium mb-1 block text-muted-foreground">Subscription ID</Label>
+                        <Input id="azureSubscriptionId" value={azureSubscriptionId} onChange={(e) => setAzureSubscriptionId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="text-xs h-8"/>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedCloud === 'gcp' && (
+                    <div className="space-y-2 pt-2 border-t border-border/30 mt-3">
+                      <Label className="text-xs font-semibold text-foreground">GCP Credentials</Label>
+                      <div>
+                        <Label htmlFor="gcpProjectId" className="text-xs font-medium mb-1 block text-muted-foreground">Project ID</Label>
+                        <Input id="gcpProjectId" value={gcpProjectId} onChange={(e) => setGcpProjectId(e.target.value)} placeholder="your-gcp-project-id" className="text-xs h-8"/>
+                      </div>
+                      <div>
+                        <Label htmlFor="gcpJsonKey" className="text-xs font-medium mb-1 block text-muted-foreground">JSON Key Content (Service Account)</Label>
+                        <Textarea id="gcpJsonKey" value={gcpJsonKey} onChange={(e) => setGcpJsonKey(e.target.value)} placeholder='{ "type": "service_account", ... }' className="text-xs h-24 bg-background/30 border-border/70 font-code leading-relaxed"/>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-border/30 mt-3">
+                    <Label className="text-xs font-medium mb-1.5 block text-muted-foreground">Resources</Label>
+                    <div className="space-y-1.5">
+                      {resourcesList.map((resource) => (
+                        <div key={resource.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`resource-${resource.id}`}
+                            checked={!!selectedResources[resource.id]}
+                            onCheckedChange={() => handleResourceChange(resource.id)}
+                            className="w-3.5 h-3.5"
+                          />
+                          <Label htmlFor={`resource-${resource.id}`} className="text-xs font-normal cursor-pointer">
+                            {resource.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <Textarea
+                    readOnly
+                    value={iacCode}
+                    className="h-36 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
+                    rows={8}
+                    aria-label="Infrastructure as Code Output"
+                  />
+                  <div className="flex flex-col space-y-1.5">
+                      <Button onClick={handleGenerateIac} size="sm" className="text-xs h-7">Generate & Save as main.tf</Button>
+                      <Button onClick={handleProvisionInfrastructure} variant="outline" size="sm" className="text-xs h-7">Provision Infrastructure</Button>
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+
+            <Card className="shadow-none border-border/50">
+              <CardHeader
+                className="p-3 flex flex-row items-center justify-between cursor-pointer"
+                onClick={() => toggleSection('dockerize')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleSection('dockerize')}
+                aria-expanded={openSections.dockerize}
+                aria-controls="dockerize-content"
+              >
+                <CardTitle className="text-sm font-medium">Dockerize</CardTitle>
+                {openSections.dockerize ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </CardHeader>
+              {openSections.dockerize && (
+                <CardContent className="space-y-3 p-3 pt-0" id="dockerize-content">
+                  <Label className="text-xs font-medium mb-1.5 block text-muted-foreground">Dockerfile</Label>
+                  <Textarea
+                    value={dockerfileContent}
+                    onChange={(e) => setDockerfileContent(e.target.value)}
+                    className="h-48 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
+                    rows={10}
+                    aria-label="Editable Dockerfile"
+                  />
+                  <Button onClick={handleBuildDockerImage} size="sm" className="w-full text-xs h-7">Build Docker Image</Button>
+                </CardContent>
+              )}
+            </Card>
+
+            <Card className="shadow-none border-border/50">
+               <CardHeader
+                className="p-3 flex flex-row items-center justify-between cursor-pointer"
+                onClick={() => toggleSection('dockerHub')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleSection('dockerHub')}
+                aria-expanded={openSections.dockerHub}
+                aria-controls="dockerhub-content"
+              >
+                <CardTitle className="text-sm font-medium">Docker Hub</CardTitle>
+                {openSections.dockerHub ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </CardHeader>
+              {openSections.dockerHub && (
+                <CardContent className="space-y-3 p-3 pt-0" id="dockerhub-content">
+                  <div>
+                    <Label htmlFor="dockerHubUser" className="text-xs font-medium mb-1.5 block text-muted-foreground">Docker Hub Username</Label>
+                    <Input
+                      id="dockerHubUser"
+                      value={dockerHubUsername}
+                      onChange={(e) => setDockerHubUsername(e.target.value)}
+                      placeholder="e.g., yourusername"
+                      className="text-xs h-8"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="dockerHubPass" className="text-xs font-medium mb-1.5 block text-muted-foreground">Docker Hub Password/Token</Label>
+                    <Input
+                      id="dockerHubPass"
+                      type="password"
+                      value={dockerHubPassword}
+                      onChange={(e) => setDockerHubPassword(e.target.value)}
+                      placeholder="Enter your password or token"
+                      className="text-xs h-8"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="imageName" className="text-xs font-medium mb-1.5 block text-muted-foreground">Image Name</Label>
+                    <Input
+                      id="imageName"
+                      value={imageName}
+                      onChange={(e) => setImageName(e.target.value)}
+                      placeholder="e.g., your-username/my-app:latest"
+                      className="text-xs h-8"
+                    />
+                  </div>
+                  <Button onClick={handlePushImage} size="sm" className="w-full text-xs h-7">Push Image</Button>
+                </CardContent>
+              )}
+            </Card>
+
+            <Card className="shadow-none border-border/50">
+              <CardHeader
+                className="p-3 flex flex-row items-center justify-between cursor-pointer"
+                onClick={() => toggleSection('kubernetes')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleSection('kubernetes')}
+                aria-expanded={openSections.kubernetes}
+                aria-controls="kubernetes-content"
+              >
+                <CardTitle className="text-sm font-medium">Kubernetes</CardTitle>
+                {openSections.kubernetes ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </CardHeader>
+              {openSections.kubernetes && (
+                <CardContent className="space-y-3 p-3 pt-0" id="kubernetes-content">
+                  <div>
+                    <Label htmlFor="k8sCluster" className="text-xs font-medium mb-1.5 block text-muted-foreground">Select Cluster</Label>
+                    <Select value={selectedK8sCluster} onValueChange={setSelectedK8sCluster}>
+                      <SelectTrigger id="k8sCluster" className="text-xs h-8">
+                        <SelectValue placeholder="Select a K8s cluster" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {k8sClusters.map((cluster) => (
+                          <SelectItem key={cluster.id} value={cluster.id} className="text-xs">
+                            {cluster.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex space-x-2">
+                      <Button 
+                          variant={activeK8sYamlView === 'deployment' ? 'default' : 'outline'} 
+                          size="sm" 
+                          className="text-xs h-7 flex-1" 
+                          onClick={() => handleSelectK8sYaml('deployment')}>
+                          Deployment.yaml
+                      </Button>
+                      <Button 
+                          variant={activeK8sYamlView === 'service' ? 'default' : 'outline'} 
+                          size="sm" 
+                          className="text-xs h-7 flex-1" 
+                          onClick={() => handleSelectK8sYaml('service')}>
+                          Service.yaml
+                      </Button>
+                  </div>
+                  <Textarea
+                    value={currentK8sYaml}
+                    onChange={(e) => handleK8sYamlChange(e.target.value)}
+                    className="h-48 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
+                    rows={10}
+                    aria-label="Editable Kubernetes YAML"
+                    disabled={!activeK8sYamlView}
+                  />
+                  <Button onClick={handleApplyKubernetesConfig} size="sm" className="w-full text-xs h-7">Apply Kubernetes Configuration</Button>
+                </CardContent>
+              )}
             </Card>
             
             {showLogs && (
@@ -574,6 +632,8 @@ ${selectedResources.storageBucket ? `
 };
 
 export default DeployPanel;
+    
+
     
 
     
