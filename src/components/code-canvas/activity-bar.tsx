@@ -1,8 +1,9 @@
+
 "use client";
 
 import type React from 'react';
 import { useState } from 'react';
-import { FileText, GitFork, Puzzle, Settings as SettingsIcon, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { FileText, GitFork, Puzzle, Settings as SettingsIcon, PanelLeftClose, PanelLeftOpen, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -16,6 +17,7 @@ const navItems = [
   { name: 'Explorer', icon: FileText, action: 'toggleExplorer' },
   { name: 'Source Control', icon: GitFork },
   { name: 'Extensions', icon: Puzzle },
+  { name: 'Deploy', icon: Rocket },
   { name: 'Settings', icon: SettingsIcon },
 ];
 
@@ -27,6 +29,7 @@ const ActivityBar: React.FC<ActivityBarProps> = ({ onToggleExplorer, isExplorerO
     if (action === 'toggleExplorer') {
       onToggleExplorer();
     }
+    // Add other actions here if needed for Deploy, Source Control, etc.
   };
 
   return (
