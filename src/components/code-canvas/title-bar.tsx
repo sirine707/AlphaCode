@@ -8,15 +8,12 @@ import { Button } from '@/components/ui/button';
 const menuItems = ["File", "Edit", "Selection", "View", "Go", "Run", "Terminal", "Help"];
 
 const AlphaIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className="h-5 w-5 text-primary mr-3" // Added mr-3 for spacing
+  <span
+    className="text-primary font-medium text-sm mr-3 select-none"
     aria-hidden="true"
   >
-    <path d="M11.25 4.00002L6 19H8.3125L9.4375 15.5H14.5625L15.6875 19H18L12.75 4.00002H11.25ZM10.1875 13.5L12 7.75002L13.8125 13.5H10.1875Z" />
-  </svg>
+    ALPHA
+  </span>
 );
 
 const TitleBar: React.FC = () => {
@@ -45,3 +42,4 @@ const TitleBar: React.FC = () => {
 };
 
 export default TitleBar;
+
