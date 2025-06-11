@@ -102,6 +102,21 @@ const DeployPanel: React.FC<DeployPanelProps> = ({ isOpen }) => {
   const [activeK8sYamlView, setActiveK8sYamlView] = useState<'deployment' | 'service' | null>(null);
   const [currentK8sYaml, setCurrentK8sYaml] = useState<string>('// Select a YAML file type to view/edit.');
 
+  // AWS Credentials
+  const [awsAccessKey, setAwsAccessKey] = useState<string>('');
+  const [awsSecretKey, setAwsSecretKey] = useState<string>('');
+  const [awsRegion, setAwsRegion] = useState<string>('');
+
+  // Azure Credentials
+  const [azureClientId, setAzureClientId] = useState<string>('');
+  const [azureClientSecret, setAzureClientSecret] = useState<string>('');
+  const [azureTenantId, setAzureTenantId] = useState<string>('');
+  const [azureSubscriptionId, setAzureSubscriptionId] = useState<string>('');
+
+  // GCP Credentials
+  const [gcpProjectId, setGcpProjectId] = useState<string>('');
+  const [gcpJsonKey, setGcpJsonKey] = useState<string>('');
+
 
   const handleResourceChange = (resourceId: string) => {
     setSelectedResources((prev) => ({ ...prev, [resourceId]: !prev[resourceId] }));
@@ -321,7 +336,7 @@ ${selectedResources.storageBucket ? `
     <div
       className={cn(
         "h-full bg-card shadow-md transition-all duration-300 ease-in-out overflow-hidden border-r border-border",
-        isOpen ? "w-96 p-3" : "w-0 p-0" 
+        isOpen ? "w-[450px] p-3" : "w-0 p-0" 
       )}
     >
       {isOpen && (
@@ -344,7 +359,61 @@ ${selectedResources.storageBucket ? `
                   </RadioGroup>
                 </div>
 
-                <div>
+                {selectedCloud === 'aws' && (
+                  <div className="space-y-2 pt-2 border-t border-border/30 mt-3">
+                    <Label className="text-xs font-semibold text-foreground">AWS Credentials</Label>
+                    <div>
+                      <Label htmlFor="awsAccessKey" className="text-xs font-medium mb-1 block text-muted-foreground">Access Key ID</Label>
+                      <Input id="awsAccessKey" value={awsAccessKey} onChange={(e) => setAwsAccessKey(e.target.value)} placeholder="AKIAIOSFODNN7EXAMPLE" className="text-xs h-8"/>
+                    </div>
+                    <div>
+                      <Label htmlFor="awsSecretKey" className="text-xs font-medium mb-1 block text-muted-foreground">Secret Access Key</Label>
+                      <Input id="awsSecretKey" type="password" value={awsSecretKey} onChange={(e) => setAwsSecretKey(e.target.value)} placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" className="text-xs h-8"/>
+                    </div>
+                    <div>
+                      <Label htmlFor="awsRegion" className="text-xs font-medium mb-1 block text-muted-foreground">Default Region</Label>
+                      <Input id="awsRegion" value={awsRegion} onChange={(e) => setAwsRegion(e.target.value)} placeholder="us-east-1" className="text-xs h-8"/>
+                    </div>
+                  </div>
+                )}
+
+                {selectedCloud === 'azure' && (
+                  <div className="space-y-2 pt-2 border-t border-border/30 mt-3">
+                    <Label className="text-xs font-semibold text-foreground">Azure Credentials</Label>
+                    <div>
+                      <Label htmlFor="azureClientId" className="text-xs font-medium mb-1 block text-muted-foreground">Client ID</Label>
+                      <Input id="azureClientId" value={azureClientId} onChange={(e) => setAzureClientId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="text-xs h-8"/>
+                    </div>
+                    <div>
+                      <Label htmlFor="azureClientSecret" className="text-xs font-medium mb-1 block text-muted-foreground">Client Secret</Label>
+                      <Input id="azureClientSecret" type="password" value={azureClientSecret} onChange={(e) => setAzureClientSecret(e.target.value)} placeholder="Enter Client Secret" className="text-xs h-8"/>
+                    </div>
+                    <div>
+                      <Label htmlFor="azureTenantId" className="text-xs font-medium mb-1 block text-muted-foreground">Tenant ID</Label>
+                      <Input id="azureTenantId" value={azureTenantId} onChange={(e) => setAzureTenantId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="text-xs h-8"/>
+                    </div>
+                    <div>
+                      <Label htmlFor="azureSubscriptionId" className="text-xs font-medium mb-1 block text-muted-foreground">Subscription ID</Label>
+                      <Input id="azureSubscriptionId" value={azureSubscriptionId} onChange={(e) => setAzureSubscriptionId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="text-xs h-8"/>
+                    </div>
+                  </div>
+                )}
+
+                {selectedCloud === 'gcp' && (
+                  <div className="space-y-2 pt-2 border-t border-border/30 mt-3">
+                    <Label className="text-xs font-semibold text-foreground">GCP Credentials</Label>
+                    <div>
+                      <Label htmlFor="gcpProjectId" className="text-xs font-medium mb-1 block text-muted-foreground">Project ID</Label>
+                      <Input id="gcpProjectId" value={gcpProjectId} onChange={(e) => setGcpProjectId(e.target.value)} placeholder="your-gcp-project-id" className="text-xs h-8"/>
+                    </div>
+                    <div>
+                      <Label htmlFor="gcpJsonKey" className="text-xs font-medium mb-1 block text-muted-foreground">JSON Key Content (Service Account)</Label>
+                      <Textarea id="gcpJsonKey" value={gcpJsonKey} onChange={(e) => setGcpJsonKey(e.target.value)} placeholder='{ "type": "service_account", ... }' className="text-xs h-24 bg-background/30 border-border/70 font-code leading-relaxed"/>
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-border/30 mt-3">
                   <Label className="text-xs font-medium mb-1.5 block text-muted-foreground">Resources</Label>
                   <div className="space-y-1.5">
                     {resourcesList.map((resource) => (
@@ -505,6 +574,8 @@ ${selectedResources.storageBucket ? `
 };
 
 export default DeployPanel;
+    
+
     
 
     
