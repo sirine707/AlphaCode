@@ -6,7 +6,8 @@ import ActivityBar from './activity-bar';
 import FileExplorerPanel, { type FileItem } from './file-explorer-panel';
 import EditorWorkspace from './editor-workspace';
 import TitleBar from './title-bar';
-import DeployPanel from './deploy-panel'; // Import the new DeployPanel
+import DeployPanel from './deploy-panel';
+import SourceControlPanel from './source-control-panel'; // Import the new SourceControlPanel
 
 export type ActiveView = 'explorer' | 'source-control' | 'extensions' | 'deploy' | 'settings' | null;
 
@@ -38,12 +39,12 @@ const CodeCanvasLayout: React.FC = () => {
       });
       setActiveFilePath(file.path);
       // If a panel like deploy was open, switch back to explorer or editor focus
-      if (activeView !== 'explorer' && activeView !== null) {
+      // if (activeView !== 'explorer' && activeView !== null) {
          // setActiveView(null); // Or 'explorer' if you want explorer to pop back
          // setIsSidePanelVisible(false); // Consider if side panel should auto-close
-      }
+      // }
     }
-  }, [activeView]);
+  }, []);
 
   const handleCloseFile = useCallback((filePathToClose: string) => {
     setOpenFiles((prevOpenFiles) => {
@@ -56,7 +57,8 @@ const CodeCanvasLayout: React.FC = () => {
         if (updatedOpenFiles.length === 0) {
           setActiveFilePath(null);
         } else {
-          const newActiveIndex = Math.max(0, Math.min(fileIndex, updatedOpenFiles.length - 1));
+          // Try to activate the tab to the right, or the new last tab if closing the last one
+          const newActiveIndex = Math.min(fileIndex, updatedOpenFiles.length - 1);
           setActiveFilePath(updatedOpenFiles[newActiveIndex]?.path || null);
         }
       }
@@ -77,14 +79,17 @@ const CodeCanvasLayout: React.FC = () => {
           onViewChange={handleViewChange}
           isSidePanelOpen={isSidePanelVisible}
         />
-        {activeView === 'explorer' && (
+        {activeView === 'explorer' && isSidePanelVisible && (
           <FileExplorerPanel isOpen={isSidePanelVisible} onOpenFile={handleOpenFile} />
         )}
-        {activeView === 'deploy' && (
+        {activeView === 'deploy' && isSidePanelVisible && (
           <DeployPanel isOpen={isSidePanelVisible} />
         )}
-        {/* Placeholder for other views like source-control, extensions, settings */}
-        {(activeView !== 'explorer' && activeView !== 'deploy' && isSidePanelVisible && activeView !== null) && (
+        {activeView === 'source-control' && isSidePanelVisible && (
+          <SourceControlPanel isOpen={isSidePanelVisible} />
+        )}
+        {/* Placeholder for other views like extensions, settings */}
+        {(activeView === 'extensions' || activeView === 'settings') && isSidePanelVisible && activeView !== null && (
             <div className="w-64 h-full bg-card p-4 border-r border-border">
                 <p className="text-sm text-muted-foreground">Panel for: {activeView}</p>
                 <p className="text-xs mt-2">This is a placeholder. Implement actual panel content.</p>
