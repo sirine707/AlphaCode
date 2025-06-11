@@ -23,7 +23,7 @@ if __name__ == "__main__":
 const CodeEditorArea: React.FC = () => {
   const [code, setCode] = useState(initialPythonCode);
 
-  const lines = code.split('\\n');
+  const lines = code.split('\n');
   const lineCount = lines.length;
 
   const handleCodeChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
