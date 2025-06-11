@@ -11,22 +11,24 @@ const defaultWelcomeMessage = `
 interface CodeEditorAreaProps {
   fileContent?: string;
   fileName?: string;
+  filePath?: string | null; // Used to detect when active file changes
 }
 
-const CodeEditorArea: React.FC<CodeEditorAreaProps> = ({ fileContent, fileName }) => {
+const CodeEditorArea: React.FC<CodeEditorAreaProps> = ({ fileContent, fileName, filePath }) => {
   const [code, setCode] = useState(fileContent !== undefined ? fileContent : defaultWelcomeMessage);
 
   useEffect(() => {
     setCode(fileContent !== undefined ? fileContent : defaultWelcomeMessage);
-  }, [fileContent, fileName]);
+  }, [fileContent, filePath]); // Depend on filePath to reset content when file changes
 
   const lines = code.split('\n');
   const lineCount = lines.length;
 
   const handleCodeChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(event.target.value);
-    // Here you would typically also call a function to save the changes
-    // to the actual file or update the parent component's state.
+    // In a real app, you'd also handle saving this change, perhaps by debouncing
+    // and calling a prop function to update the file content in the parent state.
+    // For now, this only updates local state.
   };
 
   return (
@@ -49,7 +51,8 @@ const CodeEditorArea: React.FC<CodeEditorAreaProps> = ({ fileContent, fileName }
             lineHeight: 'inherit',
             minHeight: `${lineCount * 1.5}em`
           }}
-          aria-label={`Code editor for ${fileName}`}
+          aria-label={`Code editor for ${fileName || 'untitled'}`}
+          key={filePath || 'welcome'} // Force re-render of textarea if filePath changes
         />
       </div>
     </ScrollArea>
