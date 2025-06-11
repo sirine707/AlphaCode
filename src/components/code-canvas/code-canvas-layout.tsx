@@ -5,6 +5,7 @@ import React, { useState, useCallback } from 'react';
 import ActivityBar from './activity-bar';
 import FileExplorerPanel, { type FileItem } from './file-explorer-panel';
 import EditorWorkspace from './editor-workspace';
+import TitleBar from './title-bar'; // Import the new TitleBar
 
 const CodeCanvasLayout: React.FC = () => {
   const [isExplorerOpen, setIsExplorerOpen] = useState(true);
@@ -52,15 +53,18 @@ const CodeCanvasLayout: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-code">
-      <ActivityBar onToggleExplorer={toggleExplorer} isExplorerOpen={isExplorerOpen} />
-      <FileExplorerPanel isOpen={isExplorerOpen} onOpenFile={handleOpenFile} />
-      <EditorWorkspace
-        openFiles={openFiles}
-        activeFilePath={activeFilePath}
-        onCloseTab={handleCloseFile}
-        onSwitchTab={handleSwitchTab}
-      />
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-code">
+      <TitleBar />
+      <div className="flex flex-1 overflow-hidden"> {/* Main content area */}
+        <ActivityBar onToggleExplorer={toggleExplorer} isExplorerOpen={isExplorerOpen} />
+        <FileExplorerPanel isOpen={isExplorerOpen} onOpenFile={handleOpenFile} />
+        <EditorWorkspace
+          openFiles={openFiles}
+          activeFilePath={activeFilePath}
+          onCloseTab={handleCloseFile}
+          onSwitchTab={handleSwitchTab}
+        />
+      </div>
     </div>
   );
 };
