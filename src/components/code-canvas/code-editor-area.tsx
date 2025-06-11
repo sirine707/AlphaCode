@@ -1,7 +1,8 @@
-import type React from 'react';
+
+import React, { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const pythonCode = `
+const initialPythonCode = `
 # Welcome to CodeCanvas!
 # This is a simple Python example.
 
@@ -16,34 +17,40 @@ if __name__ == "__main__":
 # - VS Code Inspired UI
 # - File Explorer
 # - Tabbed Interface
-# - Syntax Highlighting (basic)
+# - Editable code area
 `;
 
-// Basic syntax highlighting logic
-const highlightedCodeLines = pythonCode
-  .split('\\n')
-  .map(line => line
-    .replace(/(#.*)/g, '<span class="text-green-400">$1</span>') // Comments
-    .replace(/\b(def|if|else|elif|for|while|return|class|try|except|finally|import|from|as|in|is|not|and|or|pass|break|continue|global|nonlocal|yield|with|True|False|None)\b/g, '<span class="text-blue-400 font-medium">$1</span>') // Keywords
-    .replace(/(\bprint\b|\bgreet\b)/g, '<span class="text-purple-400">$1</span>') // Functions
-    .replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|".*?"|'.*?')/g, '<span class="text-orange-400">$1</span>') // Strings
-  );
-
-
 const CodeEditorArea: React.FC = () => {
+  const [code, setCode] = useState(initialPythonCode);
+
+  const lines = code.split('\\n');
+  const lineCount = lines.length;
+
+  const handleCodeChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCode(event.target.value);
+  };
+
   return (
     <ScrollArea className="h-full flex-1 bg-background p-0">
-      <div className="flex p-4 text-sm leading-relaxed">
-        <div className="mr-4 select-none text-right text-muted-foreground">
-          {highlightedCodeLines.map((_, index) => (
-            <div key={index}>{index + 1}</div>
+      <div className="flex p-4 text-sm leading-relaxed font-code">
+        <div className="mr-4 select-none text-right text-muted-foreground pr-2 border-r border-border">
+          {Array.from({ length: lineCount }, (_, i) => (
+            <div key={i + 1}>{i + 1}</div>
           ))}
         </div>
-        <pre className="flex-1">
-          {highlightedCodeLines.map((line, index) => (
-            <code key={index} dangerouslySetInnerHTML={{ __html: line || ' ' }} />
-          ))}
-        </pre>
+        <textarea
+          value={code}
+          onChange={handleCodeChange}
+          className="flex-1 resize-none bg-transparent text-foreground outline-none p-0 m-0 border-0 whitespace-pre-wrap"
+          spellCheck="false"
+          rows={lineCount > 20 ? lineCount : 20} // Provides a sensible minimum height
+          style={{ 
+            fontFamily: 'inherit', 
+            fontSize: 'inherit', 
+            lineHeight: 'inherit',
+            minHeight: `${lineCount * 1.5}em` // Attempt to dynamically adjust height based on lines
+          }}
+        />
       </div>
     </ScrollArea>
   );
