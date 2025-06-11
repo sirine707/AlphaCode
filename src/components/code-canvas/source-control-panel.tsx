@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
-import { Plus, Undo2, GitCommit, GitBranch, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight, CheckCircle, Circle } from 'lucide-react';
+import { Plus, Undo2, GitCommit, GitBranch, ArrowUp, ArrowDown, RefreshCw, ChevronDown, ChevronRight, CheckCircle, Circle, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
