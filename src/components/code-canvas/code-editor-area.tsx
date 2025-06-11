@@ -1,33 +1,32 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const initialPythonCode = `
+const defaultWelcomeMessage = `
 # Welcome to CodeCanvas!
-# This is a simple Python example.
-
-def greet(name):
-  """This function greets the person passed in as a parameter."""
-  print(f"Hello, {name}!")
-
-if __name__ == "__main__":
-  greet("Developer")
-
-# Features:
-# - VS Code Inspired UI
-# - File Explorer
-# - Tabbed Interface
-# - Editable code area
+# Click on a file in the explorer to open it.
+# You can edit the content here.
 `;
 
-const CodeEditorArea: React.FC = () => {
-  const [code, setCode] = useState(initialPythonCode);
+interface CodeEditorAreaProps {
+  fileContent?: string;
+  fileName?: string;
+}
+
+const CodeEditorArea: React.FC<CodeEditorAreaProps> = ({ fileContent, fileName }) => {
+  const [code, setCode] = useState(fileContent !== undefined ? fileContent : defaultWelcomeMessage);
+
+  useEffect(() => {
+    setCode(fileContent !== undefined ? fileContent : defaultWelcomeMessage);
+  }, [fileContent, fileName]);
 
   const lines = code.split('\n');
   const lineCount = lines.length;
 
   const handleCodeChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(event.target.value);
+    // Here you would typically also call a function to save the changes
+    // to the actual file or update the parent component's state.
   };
 
   return (
@@ -43,13 +42,14 @@ const CodeEditorArea: React.FC = () => {
           onChange={handleCodeChange}
           className="flex-1 resize-none bg-transparent text-foreground outline-none p-0 m-0 border-0 whitespace-pre-wrap"
           spellCheck="false"
-          rows={lineCount > 20 ? lineCount : 20} // Provides a sensible minimum height
-          style={{ 
-            fontFamily: 'inherit', 
-            fontSize: 'inherit', 
+          rows={lineCount > 20 ? lineCount : 20}
+          style={{
+            fontFamily: 'inherit',
+            fontSize: 'inherit',
             lineHeight: 'inherit',
-            minHeight: `${lineCount * 1.5}em` // Attempt to dynamically adjust height based on lines
+            minHeight: `${lineCount * 1.5}em`
           }}
+          aria-label={`Code editor for ${fileName}`}
         />
       </div>
     </ScrollArea>

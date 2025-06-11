@@ -6,51 +6,59 @@ import { ChevronDown, ChevronRight, Folder, File as FileIcon } from 'lucide-reac
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface FileExplorerPanelProps {
-  isOpen: boolean;
-}
-
-interface FileItem {
+export interface FileItem {
   name: string;
   type: 'file' | 'folder';
+  path: string; // Unique path for the item
+  content?: string; // Content for files
   children?: FileItem[];
   icon?: React.ElementType;
+}
+
+interface FileExplorerPanelProps {
+  isOpen: boolean;
+  onOpenFile: (file: FileItem) => void;
 }
 
 const initialFiles: FileItem[] = [
   {
     name: 'PROJECT_ROOT',
     type: 'folder',
+    path: '/',
     children: [
       {
         name: 'src',
         type: 'folder',
+        path: '/src',
         children: [
-          { name: 'app.py', type: 'file', icon: FileIcon },
-          { name: 'utils.js', type: 'file', icon: FileIcon },
+          { name: 'app.py', type: 'file', icon: FileIcon, path: '/src/app.py', content: '# Welcome to app.py\n\ndef main():\n    print("Hello from app.py")\n\nif __name__ == "__main__":\n    main()' },
+          { name: 'utils.js', type: 'file', icon: FileIcon, path: '/src/utils.js', content: '// JavaScript utility functions\n\nfunction greet(name) {\n  return `Hello, ${name}!`;\n}\n\nmodule.exports = { greet };' },
         ]
       },
       {
         name: 'tests',
         type: 'folder',
+        path: '/tests',
         children: [
-          { name: 'test_app.py', type: 'file', icon: FileIcon }
+          { name: 'test_app.py', type: 'file', icon: FileIcon, path: '/tests/test_app.py', content: '# Tests for app.py\n\nimport unittest\n# from src.app import main # Assuming app.py is structured to allow import\n\nclass TestApp(unittest.TestCase):\n    def test_example(self):\n        self.assertTrue(True)\n\nif __name__ == "__main__":\n    unittest.main()' }
         ]
       },
-      { name: 'package.json', type: 'file', icon: FileIcon },
-      { name: 'README.md', type: 'file', icon: FileIcon },
+      { name: 'package.json', type: 'file', icon: FileIcon, path: '/package.json', content: '{\n  "name": "my-project",\n  "version": "1.0.0",\n  "description": "",\n  "main": "index.js",\n  "scripts": {\n    "test": "echo \\"Error: no test specified\\" && exit 1"\n  },\n  "keywords": [],\n  "author": "",\n  "license": "ISC"\n}' },
+      { name: 'README.md', type: 'file', icon: FileIcon, path: '/README.md', content: '# My Project\n\nThis is a sample README file.' },
     ]
   }
 ];
 
 
-const FileTreeItem: React.FC<{ item: FileItem; level?: number }> = ({ item, level = 0 }) => {
-  const [isExpanded, setIsExpanded] = useState(level === 0); // Expand root by default
+const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file: FileItem) => void; }> = ({ item, level = 0, onOpenFile }) => {
+  const [isExpanded, setIsExpanded] = useState(level === 0);
   const Icon = item.icon || (item.type === 'folder' ? Folder : FileIcon);
 
   const handleToggle = () => {
     if (item.type === 'folder') {
       setIsExpanded(!isExpanded);
+    } else {
+      onOpenFile(item);
     }
   };
 
@@ -59,22 +67,23 @@ const FileTreeItem: React.FC<{ item: FileItem; level?: number }> = ({ item, leve
       <div
         className={cn(
           "flex cursor-pointer items-center space-x-2 rounded-md px-2 py-1.5 text-sm hover:bg-primary/10",
-          level > 0 && "pl-4" // Indent nested items
+          level > 0 && "pl-4"
         )}
         style={{ paddingLeft: `${level * 1 + 0.5}rem` }}
         onClick={handleToggle}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleToggle()}
+        aria-label={item.name}
       >
-        {item.type === 'folder' && (isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />)}
+        {item.type === 'folder' ? (isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />) : <div className="w-4 h-4 shrink-0"></div>}
         <Icon className={cn("h-4 w-4 shrink-0", item.type === 'folder' ? 'text-accent' : 'text-muted-foreground')} />
         <span>{item.name}</span>
       </div>
       {isExpanded && item.children && (
-        <div className="pl-0"> {/* No additional padding here, handled by level in recursive call */}
-          {item.children.map((child, index) => (
-            <FileTreeItem key={index} item={child} level={level + 1} />
+        <div className="pl-0">
+          {item.children.map((child) => (
+            <FileTreeItem key={child.path} item={child} level={level + 1} onOpenFile={onOpenFile} />
           ))}
         </div>
       )}
@@ -83,7 +92,7 @@ const FileTreeItem: React.FC<{ item: FileItem; level?: number }> = ({ item, leve
 };
 
 
-const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen }) => {
+const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFile }) => {
   return (
     <div
       className={cn(
@@ -97,8 +106,8 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen }) => {
             Explorer
           </h2>
           <ScrollArea className="flex-1">
-            {initialFiles.map((item, index) => (
-               <FileTreeItem key={index} item={item} />
+            {initialFiles.map((item) => (
+               <FileTreeItem key={item.path} item={item} onOpenFile={onOpenFile} />
             ))}
           </ScrollArea>
         </div>
