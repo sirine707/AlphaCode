@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,11 @@ const DeployPanel: React.FC<DeployPanelProps> = ({ isOpen }) => {
   const [logs, setLogs] = useState<string>('');
   const [showLogs, setShowLogs] = useState<boolean>(false);
   const [currentOperation, setCurrentOperation] = useState<string | null>(null);
+
+  const [dockerHubUsername, setDockerHubUsername] = useState<string>('');
+  const [dockerHubPassword, setDockerHubPassword] = useState<string>('');
+  const [imageName, setImageName] = useState<string>('your-username/my-app:latest');
+
 
   const handleResourceChange = (resourceId: string) => {
     setSelectedResources((prev) => ({ ...prev, [resourceId]: !prev[resourceId] }));
@@ -156,7 +162,7 @@ ${selectedResources.storageBucket ? `
       'Removing intermediate container 554433221100',
       ' ---> aabbccddeeff',
       'Successfully built aabbccddeeff',
-      'Successfully tagged my-app:latest',
+      `Successfully tagged ${imageName || 'my-app:latest'}`,
       'Docker image build complete.',
     ];
 
@@ -171,6 +177,40 @@ ${selectedResources.storageBucket ? `
       }
     }, 500);
   };
+
+  const handlePushImage = () => {
+    setCurrentOperation('Docker Image Push');
+    setLogs(`Starting Docker image push for ${imageName}...\n`);
+    setShowLogs(true);
+    let currentLogs = `Starting Docker image push for ${imageName}...\n`;
+    currentLogs += `Username: ${dockerHubUsername}\n`;
+
+    const logQueue = [
+      `Authenticating with Docker Hub as ${dockerHubUsername}...`,
+      'Login Succeeded.',
+      `Pushing image ${imageName}...`,
+      'The push refers to repository [docker.io/your-username/my-app]',
+      'layer1: Pushed',
+      'layer2: Pushed',
+      'layer3: Pushed',
+      'layer4: Pushing [===>                                               ]  5.5MB/100MB',
+      'layer4: Pushing [=========>                                         ] 15.5MB/100MB',
+      'layer4: Pushed',
+      'latest: digest: sha256:abcdef1234567890abcdef1234567890 size: 1234',
+      'Image push complete.',
+    ];
+
+    let logIndex = 0;
+    const intervalId = setInterval(() => {
+      if (logIndex < logQueue.length) {
+        currentLogs += `${logQueue[logIndex]}\n`;
+        setLogs(currentLogs);
+        logIndex++;
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 600);
+  };
   
   useEffect(() => {
     if (!isOpen) {
@@ -182,7 +222,7 @@ ${selectedResources.storageBucket ? `
     <div
       className={cn(
         "h-full bg-card shadow-md transition-all duration-300 ease-in-out overflow-hidden border-r border-border",
-        isOpen ? "w-96 p-3" : "w-0 p-0"
+        isOpen ? "w-96 p-3" : "w-0 p-0" 
       )}
     >
       {isOpen && (
@@ -253,6 +293,46 @@ ${selectedResources.storageBucket ? `
                 <Button onClick={handleBuildDockerImage} size="sm" className="w-full text-xs h-7">Build Docker Image</Button>
               </CardContent>
             </Card>
+
+            <Card className="shadow-none border-border/50">
+              <CardHeader className="p-3">
+                <CardTitle className="text-sm font-medium">Docker Hub</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 p-3">
+                <div>
+                  <Label htmlFor="dockerHubUser" className="text-xs font-medium mb-1.5 block text-muted-foreground">Docker Hub Username</Label>
+                  <Input
+                    id="dockerHubUser"
+                    value={dockerHubUsername}
+                    onChange={(e) => setDockerHubUsername(e.target.value)}
+                    placeholder="e.g., yourusername"
+                    className="text-xs h-8"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dockerHubPass" className="text-xs font-medium mb-1.5 block text-muted-foreground">Docker Hub Password/Token</Label>
+                  <Input
+                    id="dockerHubPass"
+                    type="password"
+                    value={dockerHubPassword}
+                    onChange={(e) => setDockerHubPassword(e.target.value)}
+                    placeholder="Enter your password or token"
+                    className="text-xs h-8"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="imageName" className="text-xs font-medium mb-1.5 block text-muted-foreground">Image Name</Label>
+                  <Input
+                    id="imageName"
+                    value={imageName}
+                    onChange={(e) => setImageName(e.target.value)}
+                    placeholder="e.g., your-username/my-app:latest"
+                    className="text-xs h-8"
+                  />
+                </div>
+                <Button onClick={handlePushImage} size="sm" className="w-full text-xs h-7">Push Image</Button>
+              </CardContent>
+            </Card>
             
             {showLogs && (
               <Card className="shadow-none border-border/50">
@@ -278,5 +358,4 @@ ${selectedResources.storageBucket ? `
 };
 
 export default DeployPanel;
-
     
