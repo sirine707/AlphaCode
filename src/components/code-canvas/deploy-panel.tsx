@@ -29,6 +29,12 @@ const resourcesList = [
   { id: 'storageBucket', label: 'Storage Bucket' },
 ];
 
+const initialDockerfileContent = `FROM python:3.10-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python", "app.py"]`;
+
 const DeployPanel: React.FC<DeployPanelProps> = ({ isOpen }) => {
   const [selectedCloud, setSelectedCloud] = useState<string>('aws');
   const [selectedResources, setSelectedResources] = useState<Record<string, boolean>>({
@@ -38,8 +44,10 @@ const DeployPanel: React.FC<DeployPanelProps> = ({ isOpen }) => {
     storageBucket: false,
   });
   const [iacCode, setIacCode] = useState<string>('// Click "Generate & Save" to see IaC output.');
+  const [dockerfileContent, setDockerfileContent] = useState<string>(initialDockerfileContent);
   const [logs, setLogs] = useState<string>('');
   const [showLogs, setShowLogs] = useState<boolean>(false);
+  const [currentOperation, setCurrentOperation] = useState<string | null>(null);
 
   const handleResourceChange = (resourceId: string) => {
     setSelectedResources((prev) => ({ ...prev, [resourceId]: !prev[resourceId] }));
@@ -78,13 +86,15 @@ ${selectedResources.storageBucket ? `
 # resource "aws_s3_bucket" "example_bucket" { ... } # Placeholder
 ` : ''}
     `.trim());
-    setShowLogs(false);
+    setLogs('Generated and saved IaC to main.tf (simulated).\n');
+    setShowLogs(true);
+    setCurrentOperation('IaC Generation');
   };
 
   const handleProvisionInfrastructure = () => {
+    setCurrentOperation('Infrastructure Provisioning');
     setLogs(`Starting infrastructure provisioning for ${selectedCloud.toUpperCase()}...\n`);
     setShowLogs(true);
-    // Simulate logging
     let currentLogs = `Starting infrastructure provisioning for ${selectedCloud.toUpperCase()}...\n`;
     currentLogs += `Using IaC:\n${iacCode}\n\n`;
     
@@ -114,10 +124,57 @@ ${selectedResources.storageBucket ? `
       }
     }, 700);
   };
+
+  const handleBuildDockerImage = () => {
+    setCurrentOperation('Docker Image Build');
+    setLogs(`Starting Docker image build...\n`);
+    setShowLogs(true);
+    let currentLogs = `Starting Docker image build...\n`;
+    currentLogs += `Using Dockerfile:\n${dockerfileContent}\n\n`;
+
+    const logQueue = [
+      'Connecting to Docker daemon...',
+      'Connected to Docker daemon.',
+      'Sending build context to Docker daemon...',
+      'Step 1/5 : FROM python:3.10-slim',
+      ' ---> Using cache',
+      ' ---> abcdef123456',
+      'Step 2/5 : WORKDIR /app',
+      ' ---> Using cache',
+      ' ---> 123456abcdef',
+      'Step 3/5 : COPY . .',
+      ' ---> Using cache',
+      ' ---> fedcba654321',
+      'Step 4/5 : RUN pip install -r requirements.txt',
+      ' ---> Running in deadbeef1234',
+      'Collecting ... (simulated)',
+      'Successfully installed ...',
+      'Removing intermediate container deadbeef1234',
+      ' ---> 001122334455',
+      'Step 5/5 : CMD ["python", "app.py"]',
+      ' ---> Running in 554433221100',
+      'Removing intermediate container 554433221100',
+      ' ---> aabbccddeeff',
+      'Successfully built aabbccddeeff',
+      'Successfully tagged my-app:latest',
+      'Docker image build complete.',
+    ];
+
+    let logIndex = 0;
+    const intervalId = setInterval(() => {
+      if (logIndex < logQueue.length) {
+        currentLogs += `${logQueue[logIndex]}\n`;
+        setLogs(currentLogs);
+        logIndex++;
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 500);
+  };
   
   useEffect(() => {
     if (!isOpen) {
-      setShowLogs(false); // Hide logs when panel is closed
+      setShowLogs(false);
     }
   }, [isOpen]);
 
@@ -125,7 +182,7 @@ ${selectedResources.storageBucket ? `
     <div
       className={cn(
         "h-full bg-card shadow-md transition-all duration-300 ease-in-out overflow-hidden border-r border-border",
-        isOpen ? "w-80 p-3" : "w-0 p-0"
+        isOpen ? "w-96 p-3" : "w-0 p-0"
       )}
     >
       {isOpen && (
@@ -166,33 +223,41 @@ ${selectedResources.storageBucket ? `
                     ))}
                   </div>
                 </div>
+                 <Textarea
+                  readOnly
+                  value={iacCode}
+                  className="h-36 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
+                  rows={8}
+                  aria-label="Infrastructure as Code Output"
+                />
+                <div className="flex flex-col space-y-1.5">
+                    <Button onClick={handleGenerateIac} size="sm" className="text-xs h-7">Generate & Save as main.tf</Button>
+                    <Button onClick={handleProvisionInfrastructure} variant="outline" size="sm" className="text-xs h-7">Provision Infrastructure</Button>
+                </div>
               </CardContent>
             </Card>
 
             <Card className="shadow-none border-border/50">
               <CardHeader className="p-3">
-                <CardTitle className="text-sm font-medium">IaC Output <span className="text-xs text-muted-foreground">(Terraform / Pulumi)</span></CardTitle>
+                <CardTitle className="text-sm font-medium">Dockerize</CardTitle>
               </CardHeader>
-              <CardContent className="p-3">
+              <CardContent className="space-y-3 p-3">
+                 <Label className="text-xs font-medium mb-1.5 block text-muted-foreground">Dockerfile</Label>
                 <Textarea
-                  readOnly
-                  value={iacCode}
+                  value={dockerfileContent}
+                  onChange={(e) => setDockerfileContent(e.target.value)}
                   className="h-48 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
                   rows={10}
-                  aria-label="Infrastructure as Code Output"
+                  aria-label="Editable Dockerfile"
                 />
+                <Button onClick={handleBuildDockerImage} size="sm" className="w-full text-xs h-7">Build Docker Image</Button>
               </CardContent>
             </Card>
             
-            <div className="flex flex-col space-y-2">
-              <Button onClick={handleGenerateIac} size="sm">Generate & Save as main.tf</Button>
-              <Button onClick={handleProvisionInfrastructure} variant="outline" size="sm">Provision Infrastructure</Button>
-            </div>
-
             {showLogs && (
               <Card className="shadow-none border-border/50">
                 <CardHeader className="p-3">
-                  <CardTitle className="text-sm font-medium">Logs</CardTitle>
+                  <CardTitle className="text-sm font-medium">Logs: {currentOperation || 'Operations'}</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3">
                   <Textarea
@@ -200,7 +265,7 @@ ${selectedResources.storageBucket ? `
                     value={logs}
                     className="h-40 text-xs bg-background/30 border-border/70 font-code leading-relaxed"
                     rows={8}
-                    aria-label="Provisioning Logs"
+                    aria-label="Operation Logs"
                   />
                 </CardContent>
               </Card>
@@ -213,3 +278,5 @@ ${selectedResources.storageBucket ? `
 };
 
 export default DeployPanel;
+
+    
