@@ -2,9 +2,10 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Folder, File as FileIcon } from 'lucide-react';
+import { ChevronDown, ChevronRight, Folder, File as FileIcon, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 
 export interface FileItem {
   name: string;
@@ -102,9 +103,14 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
     >
       {isOpen && (
         <div className="flex flex-col h-full">
-          <h2 className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Explorer
-          </h2>
+          <div className="mb-3 px-2 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-grow">
+              Explorer
+            </h2>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </div>
           <ScrollArea className="flex-1">
             {initialFiles.map((item) => (
                <FileTreeItem key={item.path} item={item} onOpenFile={onOpenFile} />
