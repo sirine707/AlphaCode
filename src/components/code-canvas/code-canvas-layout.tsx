@@ -9,13 +9,15 @@ import TitleBar from './title-bar';
 import DeployPanel from './deploy-panel';
 import SourceControlPanel from './source-control-panel';
 import ExtensionsPanel from './extensions-panel';
-import SettingsPanel from './settings-panel'; // Import the new SettingsPanel
+import SettingsPanel from './settings-panel';
+import ChatPanel from './chat-panel'; // Import the new ChatPanel
 
 export type ActiveView = 'explorer' | 'source-control' | 'extensions' | 'deploy' | 'settings' | null;
 
 const CodeCanvasLayout: React.FC = () => {
   const [activeView, setActiveView] = useState<ActiveView>('explorer');
   const [isSidePanelVisible, setIsSidePanelVisible] = useState(true);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
 
   const [openFiles, setOpenFiles] = useState<FileItem[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
@@ -28,6 +30,10 @@ const CodeCanvasLayout: React.FC = () => {
       setIsSidePanelVisible(true); // Always open panel when switching to a new view
     }
   }, [activeView]);
+
+  const toggleChatPanel = useCallback(() => {
+    setIsChatPanelOpen(prev => !prev);
+  }, []);
 
 
   const handleOpenFile = useCallback((file: FileItem) => {
@@ -68,8 +74,8 @@ const CodeCanvasLayout: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-code">
-      <TitleBar />
-      <div className="flex flex-1 overflow-hidden">
+      <TitleBar onToggleChatPanel={toggleChatPanel} />
+      <div className="flex flex-1 overflow-hidden relative"> {/* Added relative for positioning ChatPanel */}
         <ActivityBar
           activeViewId={activeView}
           onViewChange={handleViewChange}
@@ -96,6 +102,7 @@ const CodeCanvasLayout: React.FC = () => {
           onCloseTab={handleCloseFile}
           onSwitchTab={handleSwitchTab}
         />
+        <ChatPanel isOpen={isChatPanelOpen} onClose={toggleChatPanel} />
       </div>
     </div>
   );

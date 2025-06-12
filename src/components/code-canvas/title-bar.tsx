@@ -16,7 +16,11 @@ const AlphaIcon = () => (
   </span>
 );
 
-const TitleBar: React.FC = () => {
+interface TitleBarProps {
+  onToggleChatPanel?: () => void;
+}
+
+const TitleBar: React.FC<TitleBarProps> = ({ onToggleChatPanel }) => {
   return (
     <div className="flex h-8 items-center justify-between bg-card px-3 shadow-sm border-b border-border select-none">
       <div className="flex items-center">
@@ -30,7 +34,7 @@ const TitleBar: React.FC = () => {
         </div>
       </div>
       <div className="flex items-center space-x-1">
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={onToggleChatPanel}>
           <Bot className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
@@ -45,3 +49,4 @@ const TitleBar: React.FC = () => {
 };
 
 export default TitleBar;
+
