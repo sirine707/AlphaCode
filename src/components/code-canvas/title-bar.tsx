@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const menuItems = ["File", "Edit", "Selection", "View", "Go", "Run", "Terminal", "Help"];
@@ -31,6 +31,9 @@ const TitleBar: React.FC = () => {
       </div>
       <div className="flex items-center space-x-1">
         <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+          <Bot className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
@@ -42,4 +45,3 @@ const TitleBar: React.FC = () => {
 };
 
 export default TitleBar;
-
