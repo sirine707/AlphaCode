@@ -8,7 +8,8 @@ import EditorWorkspace from './editor-workspace';
 import TitleBar from './title-bar';
 import DeployPanel from './deploy-panel';
 import SourceControlPanel from './source-control-panel';
-import ExtensionsPanel from './extensions-panel'; // Import the new ExtensionsPanel
+import ExtensionsPanel from './extensions-panel';
+import SettingsPanel from './settings-panel'; // Import the new SettingsPanel
 
 export type ActiveView = 'explorer' | 'source-control' | 'extensions' | 'deploy' | 'settings' | null;
 
@@ -86,12 +87,8 @@ const CodeCanvasLayout: React.FC = () => {
         {activeView === 'extensions' && isSidePanelVisible && (
           <ExtensionsPanel isOpen={isSidePanelVisible} />
         )}
-        {/* Placeholder for other views like settings */}
-        {activeView === 'settings' && isSidePanelVisible && activeView !== null && (
-            <div className="w-64 h-full bg-card p-4 border-r border-border">
-                <p className="text-sm text-muted-foreground">Panel for: {activeView}</p>
-                <p className="text-xs mt-2">This is a placeholder. Implement actual panel content.</p>
-            </div>
+        {activeView === 'settings' && isSidePanelVisible && (
+          <SettingsPanel isOpen={isSidePanelVisible} />
         )}
         <EditorWorkspace
           openFiles={openFiles}
