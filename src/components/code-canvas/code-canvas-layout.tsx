@@ -7,7 +7,8 @@ import FileExplorerPanel, { type FileItem } from './file-explorer-panel';
 import EditorWorkspace from './editor-workspace';
 import TitleBar from './title-bar';
 import DeployPanel from './deploy-panel';
-import SourceControlPanel from './source-control-panel'; // Import the new SourceControlPanel
+import SourceControlPanel from './source-control-panel';
+import ExtensionsPanel from './extensions-panel'; // Import the new ExtensionsPanel
 
 export type ActiveView = 'explorer' | 'source-control' | 'extensions' | 'deploy' | 'settings' | null;
 
@@ -38,11 +39,6 @@ const CodeCanvasLayout: React.FC = () => {
         return [...prevOpenFiles, file];
       });
       setActiveFilePath(file.path);
-      // If a panel like deploy was open, switch back to explorer or editor focus
-      // if (activeView !== 'explorer' && activeView !== null) {
-         // setActiveView(null); // Or 'explorer' if you want explorer to pop back
-         // setIsSidePanelVisible(false); // Consider if side panel should auto-close
-      // }
     }
   }, []);
 
@@ -57,7 +53,6 @@ const CodeCanvasLayout: React.FC = () => {
         if (updatedOpenFiles.length === 0) {
           setActiveFilePath(null);
         } else {
-          // Try to activate the tab to the right, or the new last tab if closing the last one
           const newActiveIndex = Math.min(fileIndex, updatedOpenFiles.length - 1);
           setActiveFilePath(updatedOpenFiles[newActiveIndex]?.path || null);
         }
@@ -88,8 +83,11 @@ const CodeCanvasLayout: React.FC = () => {
         {activeView === 'source-control' && isSidePanelVisible && (
           <SourceControlPanel isOpen={isSidePanelVisible} />
         )}
-        {/* Placeholder for other views like extensions, settings */}
-        {(activeView === 'extensions' || activeView === 'settings') && isSidePanelVisible && activeView !== null && (
+        {activeView === 'extensions' && isSidePanelVisible && (
+          <ExtensionsPanel isOpen={isSidePanelVisible} />
+        )}
+        {/* Placeholder for other views like settings */}
+        {activeView === 'settings' && isSidePanelVisible && activeView !== null && (
             <div className="w-64 h-full bg-card p-4 border-r border-border">
                 <p className="text-sm text-muted-foreground">Panel for: {activeView}</p>
                 <p className="text-xs mt-2">This is a placeholder. Implement actual panel content.</p>
