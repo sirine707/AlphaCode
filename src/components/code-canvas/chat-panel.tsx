@@ -1,16 +1,17 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { X, Paperclip, Mic, AtSign, Send, ChevronDown, Folder, FileText, ChevronRight } from 'lucide-react';
+import { X, Paperclip, Mic, AtSign, Send, ChevronDown, Folder, FileText, ChevronRight, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileItem } from './file-explorer-panel';
 import { initialFiles } from './file-explorer-panel';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Added Avatar
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -21,8 +22,18 @@ interface ContextFileTreeItemProps {
   item: FileItem;
   level?: number;
   onToggleExpand: (path: string) => void;
-  onSelectItem: (file: FileItem) => void; // Renamed from onSelectFile
+  onSelectItem: (file: FileItem) => void;
   expandedPaths: Set<string>;
+}
+
+interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'bot';
+  contextPath?: string | null;
+  contextName?: string | null;
+  contextType?: 'file' | 'folder' | null;
+  timestamp: Date;
 }
 
 const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
@@ -36,14 +47,14 @@ const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
   const Icon = item.type === 'folder' ? Folder : FileText;
 
   const handleChevronClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent selecting the item when only toggling expand
+    e.stopPropagation();
     if (item.type === 'folder') {
       onToggleExpand(item.path);
     }
   };
 
   const handleItemSelect = () => {
-    onSelectItem(item); // Selects the item (file or folder)
+    onSelectItem(item);
   };
 
   return (
@@ -68,15 +79,14 @@ const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
             )}
           </button>
         ) : (
-          // Placeholder to align file items with folder items (chevron button width)
-          <div className="w-[calc(0.875rem+0.25rem)] shrink-0"></div> 
+          <div className="w-[calc(0.875rem+0.25rem)] shrink-0"></div>
         )}
 
-        <div 
+        <div
           className="ml-1.5 flex flex-1 items-center space-x-1.5 cursor-pointer"
           onClick={handleItemSelect}
-          role="button" 
-          tabIndex={0} 
+          role="button"
+          tabIndex={0}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleItemSelect()}
           aria-label={`Select ${item.name} as context`}
         >
@@ -109,7 +119,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
   const [isContextPopoverOpen, setIsContextPopoverOpen] = useState(false);
   const [expandedContextPaths, setExpandedContextPaths] = useState<Set<string>>(new Set(['/']));
   const [selectedContextItem, setSelectedContextItem] = useState<FileItem | null>(null);
-
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const handleToggleContextExpand = (path: string) => {
     setExpandedContextPaths(prev => {
@@ -125,8 +136,35 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
 
   const handleSelectContextItem = (item: FileItem) => {
     setSelectedContextItem(item);
-    setIsContextPopoverOpen(false); 
+    setIsContextPopoverOpen(false);
   };
+
+  const handleSendMessage = () => {
+    if (!inputValue.trim()) return;
+
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: inputValue,
+      sender: 'user',
+      contextPath: selectedContextItem?.path,
+      contextName: selectedContextItem?.name,
+      contextType: selectedContextItem?.type,
+      timestamp: new Date(),
+    };
+
+    setMessages(prevMessages => [...prevMessages, newMessage]);
+    setInputValue('');
+    setSelectedContextItem(null);
+  };
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollViewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollViewport) {
+        scrollViewport.scrollTop = scrollViewport.scrollHeight;
+      }
+    }
+  }, [messages]);
 
 
   if (!isOpen) {
@@ -151,10 +189,46 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
       </div>
 
       {/* Message Area */}
-      <ScrollArea className="flex-1 p-3">
-        <div className="text-xs text-muted-foreground text-center py-10">
-          Ask Copilot anything...
-        </div>
+      <ScrollArea className="flex-1 p-3" ref={scrollAreaRef}>
+        {messages.length === 0 ? (
+          <div className="text-xs text-muted-foreground text-center py-10">
+            Ask Copilot anything...
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((msg) => (
+              <div key={msg.id} className={cn("flex", msg.sender === 'user' ? "justify-start" : "justify-end")}>
+                <div className={cn(
+                  "flex items-start space-x-2 max-w-[85%]",
+                  msg.sender === 'bot' && "flex-row-reverse space-x-reverse"
+                )}>
+                  <Avatar className="h-6 w-6 shrink-0">
+                    {msg.sender === 'user' ? (
+                      <UserCircle2 className="h-full w-full text-primary" />
+                    ) : (
+                      <AvatarImage src="https://placehold.co/32x32.png" alt="Bot Avatar" data-ai-hint="bot avatar" />
+                    )}
+                    <AvatarFallback>{msg.sender === 'user' ? 'U' : 'B'}</AvatarFallback>
+                  </Avatar>
+                  <div className={cn(
+                    "rounded-lg px-3 py-2 text-xs shadow-sm",
+                    msg.sender === 'user' ? "bg-primary/20 text-foreground" : "bg-muted text-foreground"
+                  )}>
+                    <p className="leading-relaxed">{msg.text}</p>
+                    {msg.contextName && (
+                      <div className="mt-1.5 pt-1.5 border-t border-border/50 text-muted-foreground text-[0.65rem] leading-tight">
+                        Context: <span className="font-medium text-foreground/80">{msg.contextName}</span> ({msg.contextType})
+                      </div>
+                    )}
+                    <p className="mt-1 text-[0.6rem] text-muted-foreground/70 text-right">
+                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </ScrollArea>
 
       {/* Input Area */}
@@ -177,7 +251,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
                     key={item.path}
                     item={item}
                     onToggleExpand={handleToggleContextExpand}
-                    onSelectItem={handleSelectContextItem} 
+                    onSelectItem={handleSelectContextItem}
                     expandedPaths={expandedContextPaths}
                   />
                 ))}
@@ -189,6 +263,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
             placeholder="Ask Copilot"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
             className="flex-1 text-xs h-8 bg-background/50 border-border/70 focus:border-primary"
           />
         </div>
@@ -239,7 +314,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="icon" className="h-8 w-8 bg-primary hover:bg-primary/90" onClick={() => console.log('Send:', inputValue, 'with context:', selectedContextItem?.path)} disabled={!inputValue.trim()}>
+            <Button size="icon" className="h-8 w-8 bg-primary hover:bg-primary/90" onClick={handleSendMessage} disabled={!inputValue.trim()}>
               <Send className="h-4 w-4" />
               <span className="sr-only">Send Message</span>
             </Button>
@@ -251,3 +326,5 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
 };
 
 export default ChatPanel;
+
+    
