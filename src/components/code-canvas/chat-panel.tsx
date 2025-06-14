@@ -11,7 +11,7 @@ import { X, Paperclip, Mic, AtSign, Send, ChevronDown, Folder, FileText, Chevron
 import { cn } from '@/lib/utils';
 import type { FileItem } from './file-explorer-panel';
 import { initialFiles } from './file-explorer-panel';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Added Avatar
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -30,6 +30,7 @@ interface ChatMessage {
   id: string;
   text: string;
   sender: 'user' | 'bot';
+  isLoading?: boolean;
   contextPath?: string | null;
   contextName?: string | null;
   contextType?: 'file' | 'folder' | null;
@@ -142,7 +143,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
 
-    const newMessage: ChatMessage = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       text: inputValue,
       sender: 'user',
@@ -152,9 +153,31 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
       timestamp: new Date(),
     };
 
-    setMessages(prevMessages => [...prevMessages, newMessage]);
+    const botLoadingMessage: ChatMessage = {
+      id: 'bot-loading-' + Date.now(),
+      text: '...', // Placeholder, actual rendering will be dots
+      sender: 'bot',
+      isLoading: true,
+      timestamp: new Date(), // Timestamp for loading can be now, won't be displayed
+    };
+
+    setMessages(prevMessages => [...prevMessages, userMessage, botLoadingMessage]);
     setInputValue('');
     setSelectedContextItem(null);
+
+    // Simulate bot response
+    setTimeout(() => {
+      setMessages(prevMessages => {
+        const messagesWithoutLoading = prevMessages.filter(msg => !msg.isLoading);
+        const botReply: ChatMessage = {
+          id: Date.now().toString() + '-bot',
+          text: `Simulated reply to: "${userMessage.text}"`,
+          sender: 'bot',
+          timestamp: new Date(),
+        };
+        return [...messagesWithoutLoading, botReply];
+      });
+    }, 2000 + Math.random() * 1000); // Simulate 2-3 second delay
   };
 
   useEffect(() => {
@@ -197,10 +220,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
         ) : (
           <div className="space-y-4">
             {messages.map((msg) => (
-              <div key={msg.id} className={cn("flex", msg.sender === 'user' ? "justify-start" : "justify-end")}>
+              <div key={msg.id} className={cn(
+                "flex",
+                (msg.sender === 'bot' && msg.isLoading) ? "justify-start" : // Bot loading on the left
+                (msg.sender === 'user' ? "justify-start" : "justify-end")   // User on left, regular bot on right
+              )}>
                 <div className={cn(
                   "flex items-start space-x-2 max-w-[85%]",
-                  msg.sender === 'bot' && "flex-row-reverse space-x-reverse"
+                  (msg.sender === 'bot' && !msg.isLoading) && "flex-row-reverse space-x-reverse" // Regular bot messages are reversed
                 )}>
                   <Avatar className="h-6 w-6 shrink-0">
                     {msg.sender === 'user' ? (
@@ -212,17 +239,32 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
                   </Avatar>
                   <div className={cn(
                     "rounded-lg px-3 py-2 text-xs shadow-sm",
-                    msg.sender === 'user' ? "bg-primary/20 text-foreground" : "bg-muted text-foreground"
+                    (msg.sender === 'bot' && msg.isLoading) ? "bg-muted text-foreground" :
+                    (msg.sender === 'user' ? "bg-primary/20 text-foreground" : "bg-muted text-foreground")
                   )}>
-                    <p className="leading-relaxed">{msg.text}</p>
-                    {msg.contextName && (
+                    {msg.isLoading && msg.sender === 'bot' ? (
+                      <div className="flex items-center space-x-1 py-1"> {/* py-1 to match text line height roughly */}
+                        <span className="h-1.5 w-1.5 bg-foreground/70 rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></span>
+                        <span className="h-1.5 w-1.5 bg-foreground/70 rounded-full animate-pulse" style={{ animationDelay: '200ms' }}></span>
+                        <span className="h-1.5 w-1.5 bg-foreground/70 rounded-full animate-pulse" style={{ animationDelay: '400ms' }}></span>
+                      </div>
+                    ) : (
+                      <p className="leading-relaxed">{msg.text}</p>
+                    )}
+                    
+                    {!msg.isLoading && msg.contextName && (
                       <div className="mt-1.5 pt-1.5 border-t border-border/50 text-muted-foreground text-[0.65rem] leading-tight">
                         Context: <span className="font-medium text-foreground/80">{msg.contextName}</span> ({msg.contextType})
                       </div>
                     )}
-                    <p className="mt-1 text-[0.6rem] text-muted-foreground/70 text-right">
-                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                    {!msg.isLoading && (
+                       <p className={cn(
+                          "mt-1 text-[0.6rem] text-muted-foreground/70",
+                          (msg.sender === 'bot' && !msg.isLoading) ? 'text-left' : 'text-right' // Adjust timestamp alignment for bot's reversed layout
+                       )}>
+                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
