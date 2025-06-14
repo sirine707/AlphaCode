@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ChevronDown, ChevronRight, Folder, File as FileIcon, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -113,6 +113,7 @@ const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file
 const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFile }) => {
   const [projectFiles, setProjectFiles] = useState<FileItem[]>(initialFilesData);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['/'])); 
+  const directoryInputRef = useRef<HTMLInputElement>(null);
 
   const toggleCollapse = (path: string, expand?: boolean) => {
     setExpandedPaths(prev => {
@@ -133,15 +134,31 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
   };
 
   const handleClearProjectView = () => {
-    setProjectFiles([]); // This "removes" the project from the view
-    setExpandedPaths(new Set()); // Clear expansion state
+    setProjectFiles([]); 
+    setExpandedPaths(new Set());
     console.log("Project view cleared from explorer. Current project structure removed.");
   };
 
   const handleImportNewProject = () => {
-    setProjectFiles(initialFilesData); // For simulation, reload the initial project
-    setExpandedPaths(new Set(['/'])); // Reset expanded paths to show root
-    console.log("Simulating: Would open OS directory picker to import a new project. For this prototype, reloading initial project data.");
+    if (directoryInputRef.current) {
+      directoryInputRef.current.click();
+    }
+  };
+
+  const handleDirectorySelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      console.log("Directory selected. Files found:", files.length);
+      // In a real application, you would process these files to build a new FileItem[] structure.
+      // For this prototype, we'll just log and reload the initial demo project.
+      console.log("Simulating: Processing selected directory and loading project structure.");
+      setProjectFiles(initialFilesData); 
+      setExpandedPaths(new Set(['/'])); 
+    }
+    // Reset the input value to allow selecting the same directory again
+    if (directoryInputRef.current) {
+      directoryInputRef.current.value = "";
+    }
   };
 
   return (
@@ -184,6 +201,15 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
               </div>
             )}
           </ScrollArea>
+          <input
+            type="file"
+            ref={directoryInputRef}
+            onChange={handleDirectorySelected}
+            style={{ display: 'none' }}
+            webkitdirectory=""
+            directory=""
+            aria-hidden="true"
+          />
         </div>
       )}
     </div>
