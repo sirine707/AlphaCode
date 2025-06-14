@@ -166,7 +166,7 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onSelect={() => collapseAllFolders(initialFiles)}>
-                  Collapse all folders
+                  collapse project
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleImportNewProject}>
                   Import new project
