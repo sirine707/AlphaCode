@@ -10,7 +10,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { X, Paperclip, Mic, AtSign, Send, ChevronDown, Folder, FileText, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileItem } from './file-explorer-panel';
-import { initialFiles } from './file-explorer-panel'; // Import initialFiles
+import { initialFiles } from './file-explorer-panel';
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ interface ContextFileTreeItemProps {
   item: FileItem;
   level?: number;
   onToggleExpand: (path: string) => void;
-  onSelectFile: (file: FileItem) => void;
+  onSelectItem: (file: FileItem) => void; // Renamed from onSelectFile
   expandedPaths: Set<string>;
 }
 
@@ -29,43 +29,60 @@ const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
   item,
   level = 0,
   onToggleExpand,
-  onSelectFile,
+  onSelectItem,
   expandedPaths,
 }) => {
   const isExpanded = expandedPaths.has(item.path);
   const Icon = item.type === 'folder' ? Folder : FileText;
 
-  const handleItemClick = () => {
+  const handleChevronClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the item when only toggling expand
     if (item.type === 'folder') {
       onToggleExpand(item.path);
-    } else {
-      onSelectFile(item);
     }
+  };
+
+  const handleItemSelect = () => {
+    onSelectItem(item); // Selects the item (file or folder)
   };
 
   return (
     <div className="text-xs">
       <div
-        className="flex cursor-pointer items-center space-x-1.5 rounded-md px-1.5 py-1 hover:bg-primary/10"
-        style={{ paddingLeft: `${level * 0.75 + 0.375}rem` }}
-        onClick={handleItemClick}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleItemClick()}
-        aria-label={item.name}
+        className="flex items-center rounded-md px-1.5 py-1 hover:bg-primary/10"
+        style={{ paddingLeft: `${level * 0.75}rem` }}
+        role="treeitem"
         aria-expanded={item.type === 'folder' ? isExpanded : undefined}
+        aria-label={item.name}
       >
         {item.type === 'folder' ? (
-          isExpanded ? (
-            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-          )
+          <button
+            onClick={handleChevronClick}
+            className="shrink-0 p-0.5 text-muted-foreground hover:text-foreground focus:outline-none rounded-sm"
+            aria-label={isExpanded ? `Collapse ${item.name}` : `Expand ${item.name}`}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
+          </button>
         ) : (
-          <div className="w-3.5 h-3.5 shrink-0"></div> // Placeholder for file icon alignment
+          // Placeholder to align file items with folder items (chevron button width)
+          <div className="w-[calc(0.875rem+0.25rem)] shrink-0"></div> 
         )}
-        <Icon className={cn("h-3.5 w-3.5 shrink-0", item.type === 'folder' ? 'text-accent' : 'text-muted-foreground')} />
-        <span>{item.name}</span>
+
+        <div 
+          className="ml-1.5 flex flex-1 items-center space-x-1.5 cursor-pointer"
+          onClick={handleItemSelect}
+          role="button" 
+          tabIndex={0} 
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleItemSelect()}
+          aria-label={`Select ${item.name} as context`}
+        >
+          <Icon className={cn("h-3.5 w-3.5 shrink-0", item.type === 'folder' ? 'text-accent' : 'text-muted-foreground')} />
+          <span>{item.name}</span>
+        </div>
       </div>
       {isExpanded && item.children && (
         <div>
@@ -75,7 +92,7 @@ const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
               item={child}
               level={level + 1}
               onToggleExpand={onToggleExpand}
-              onSelectFile={onSelectFile}
+              onSelectItem={onSelectItem}
               expandedPaths={expandedPaths}
             />
           ))}
@@ -91,6 +108,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 3.7');
   const [isContextPopoverOpen, setIsContextPopoverOpen] = useState(false);
   const [expandedContextPaths, setExpandedContextPaths] = useState<Set<string>>(new Set(['/']));
+  const [selectedContextItem, setSelectedContextItem] = useState<FileItem | null>(null);
 
 
   const handleToggleContextExpand = (path: string) => {
@@ -105,10 +123,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
     });
   };
 
-  const handleSelectContextFile = (file: FileItem) => {
-    console.log('Selected for context:', file.path);
-    // Potentially add file to a list of context items, or directly into input
-    setIsContextPopoverOpen(false); // Close popover after selection
+  const handleSelectContextItem = (item: FileItem) => {
+    setSelectedContextItem(item);
+    setIsContextPopoverOpen(false); 
   };
 
 
@@ -160,7 +177,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
                     key={item.path}
                     item={item}
                     onToggleExpand={handleToggleContextExpand}
-                    onSelectFile={handleSelectContextFile}
+                    onSelectItem={handleSelectContextItem} 
                     expandedPaths={expandedContextPaths}
                   />
                 ))}
@@ -175,6 +192,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
             className="flex-1 text-xs h-8 bg-background/50 border-border/70 focus:border-primary"
           />
         </div>
+
+        {selectedContextItem && (
+          <div className="flex items-center justify-between rounded-md bg-background/50 p-1.5 text-xs text-muted-foreground shadow-sm border border-border/50">
+            <div className="flex items-center space-x-1.5 overflow-hidden">
+              {selectedContextItem.type === 'folder' ? <Folder className="h-3.5 w-3.5 text-accent shrink-0" /> : <FileText className="h-3.5 w-3.5 shrink-0" />}
+              <span className="truncate">
+                Context: <span className="font-medium text-foreground">{selectedContextItem.name}</span> ({selectedContextItem.type})
+              </span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-foreground shrink-0" onClick={() => setSelectedContextItem(null)}>
+              <X className="h-3 w-3" />
+              <span className="sr-only">Clear context</span>
+            </Button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-1">
             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
@@ -206,7 +239,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="icon" className="h-8 w-8 bg-primary hover:bg-primary/90" onClick={() => console.log('Send:', inputValue)} disabled={!inputValue.trim()}>
+            <Button size="icon" className="h-8 w-8 bg-primary hover:bg-primary/90" onClick={() => console.log('Send:', inputValue, 'with context:', selectedContextItem?.path)} disabled={!inputValue.trim()}>
               <Send className="h-4 w-4" />
               <span className="sr-only">Send Message</span>
             </Button>
