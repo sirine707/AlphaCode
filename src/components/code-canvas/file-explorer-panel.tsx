@@ -6,6 +6,12 @@ import { ChevronDown, ChevronRight, Folder, File as FileIcon, MoreHorizontal } f
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export interface FileItem {
   name: string;
@@ -51,13 +57,21 @@ const initialFiles: FileItem[] = [
 ];
 
 
-const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file: FileItem) => void; }> = ({ item, level = 0, onOpenFile }) => {
-  const [isExpanded, setIsExpanded] = useState(level === 0);
+const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file: FileItem) => void; onToggleCollapse?: (path: string, expand?: boolean) => void; expandedPaths?: Set<string>; }> = ({ item, level = 0, onOpenFile, onToggleCollapse, expandedPaths }) => {
+  const isExplicitlyExpanded = expandedPaths ? expandedPaths.has(item.path) : level === 0; // Default open for root or if in set
+  const [isExpanded, setIsExpanded] = useState(level === 0); // Fallback for non-controlled collapse
+
+  const currentIsExpanded = onToggleCollapse ? isExplicitlyExpanded : isExpanded;
+
   const Icon = item.icon || (item.type === 'folder' ? Folder : FileIcon);
 
   const handleToggle = () => {
     if (item.type === 'folder') {
-      setIsExpanded(!isExpanded);
+      if (onToggleCollapse) {
+        onToggleCollapse(item.path);
+      } else {
+        setIsExpanded(!isExpanded);
+      }
     } else {
       onOpenFile(item);
     }
@@ -76,15 +90,16 @@ const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file
         tabIndex={0}
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleToggle()}
         aria-label={item.name}
+        aria-expanded={item.type === 'folder' ? currentIsExpanded : undefined}
       >
-        {item.type === 'folder' ? (isExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />) : <div className="w-4 h-4 shrink-0"></div>}
+        {item.type === 'folder' ? (currentIsExpanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />) : <div className="w-4 h-4 shrink-0"></div>}
         <Icon className={cn("h-4 w-4 shrink-0", item.type === 'folder' ? 'text-accent' : 'text-muted-foreground')} />
         <span>{item.name}</span>
       </div>
-      {isExpanded && item.children && (
+      {currentIsExpanded && item.children && (
         <div className="pl-0">
           {item.children.map((child) => (
-            <FileTreeItem key={child.path} item={child} level={level + 1} onOpenFile={onOpenFile} />
+            <FileTreeItem key={child.path} item={child} level={level + 1} onOpenFile={onOpenFile} onToggleCollapse={onToggleCollapse} expandedPaths={expandedPaths} />
           ))}
         </div>
       )}
@@ -94,6 +109,42 @@ const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file
 
 
 const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFile }) => {
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['/'])); // Keep root expanded by default
+
+  const toggleCollapse = (path: string, expand?: boolean) => {
+    setExpandedPaths(prev => {
+      const newPaths = new Set(prev);
+      if (expand === true) {
+        newPaths.add(path);
+      } else if (expand === false) {
+        newPaths.delete(path);
+      } else {
+        if (newPaths.has(path)) {
+          newPaths.delete(path);
+        } else {
+          newPaths.add(path);
+        }
+      }
+      return newPaths;
+    });
+  };
+
+  const collapseAllFolders = (items: FileItem[]) => {
+    const newPaths = new Set<string>();
+    // Keep root or top-level items always somewhat visible or controlled
+    items.forEach(item => {
+      if (item.path === '/') newPaths.add(item.path); // Keep root expanded if desired, or handle differently
+    });
+    // For a true "collapse all", clear all but potentially the root
+    setExpandedPaths(new Set(['/'])); // Or an empty set if root should also collapse: new Set()
+    console.log("Collapse all folders action triggered");
+  };
+
+  const handleImportNewProject = () => {
+    console.log("Import new project action triggered");
+    // Actual import logic would go here
+  };
+
   return (
     <div
       className={cn(
@@ -107,13 +158,25 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-grow">
               Explorer
             </h2>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onSelect={() => collapseAllFolders(initialFiles)}>
+                  Collapse all folders
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleImportNewProject}>
+                  Import new project
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <ScrollArea className="flex-1">
             {initialFiles.map((item) => (
-               <FileTreeItem key={item.path} item={item} onOpenFile={onOpenFile} />
+               <FileTreeItem key={item.path} item={item} onOpenFile={onOpenFile} onToggleCollapse={toggleCollapse} expandedPaths={expandedPaths} />
             ))}
           </ScrollArea>
         </div>
