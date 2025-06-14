@@ -155,10 +155,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
 
     const botLoadingMessage: ChatMessage = {
       id: 'bot-loading-' + Date.now(),
-      text: '...', // Placeholder, actual rendering will be dots
+      text: '...', 
       sender: 'bot',
       isLoading: true,
-      timestamp: new Date(), // Timestamp for loading can be now, won't be displayed
+      timestamp: new Date(),
     };
 
     setMessages(prevMessages => [...prevMessages, userMessage, botLoadingMessage]);
@@ -167,17 +167,38 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
 
     // Simulate bot response
     setTimeout(() => {
+      let botReplyText = `Simulated reply to: "${userMessage.text}"`; 
+
+      const lowerCaseText = userMessage.text.toLowerCase();
+      const fileModificationKeywords = ['modify', 'change', 'update', 'edit', 'write to', 'add to'];
+      const knownFilePatterns = [/\b\w+\.py\b/g, /\b\w+\.js\b/g, /\b\w+\.json\b/g, /\b\w+\.md\b/g, /\b\w+\.txt\b/g, /\b\w+\.tsx\b/g, /\b\w+\.css\b/g];
+      
+      let detectedFile: string | null = null;
+      for (const pattern of knownFilePatterns) {
+        const match = userMessage.text.match(pattern); // Match against original case text for accuracy
+        if (match && match.length > 0) {
+          detectedFile = match[0];
+          break;
+        }
+      }
+      
+      const isModificationRequest = fileModificationKeywords.some(keyword => lowerCaseText.includes(keyword)) && detectedFile;
+
+      if (isModificationRequest) {
+        botReplyText = `Understood. I will ask the file modification agent to process your request for \`${detectedFile}\`.`;
+      }
+
       setMessages(prevMessages => {
         const messagesWithoutLoading = prevMessages.filter(msg => !msg.isLoading);
         const botReply: ChatMessage = {
           id: Date.now().toString() + '-bot',
-          text: `Simulated reply to: "${userMessage.text}"`,
+          text: botReplyText,
           sender: 'bot',
           timestamp: new Date(),
         };
         return [...messagesWithoutLoading, botReply];
       });
-    }, 2000 + Math.random() * 1000); // Simulate 2-3 second delay
+    }, 2000 + Math.random() * 1000); 
   };
 
   useEffect(() => {
@@ -222,12 +243,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
             {messages.map((msg) => (
               <div key={msg.id} className={cn(
                 "flex",
-                (msg.sender === 'bot' && msg.isLoading) ? "justify-start" : // Bot loading on the left
-                (msg.sender === 'user' ? "justify-start" : "justify-end")   // User on left, regular bot on right
+                (msg.sender === 'bot' && msg.isLoading) ? "justify-start" : 
+                (msg.sender === 'user' ? "justify-start" : "justify-end")   
               )}>
                 <div className={cn(
                   "flex items-start space-x-2 max-w-[85%]",
-                  (msg.sender === 'bot' && !msg.isLoading) && "flex-row-reverse space-x-reverse" // Regular bot messages are reversed
+                  (msg.sender === 'bot' && !msg.isLoading) && "flex-row-reverse space-x-reverse" 
                 )}>
                   <Avatar className="h-6 w-6 shrink-0">
                     {msg.sender === 'user' ? (
@@ -243,13 +264,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
                     (msg.sender === 'user' ? "bg-primary/20 text-foreground" : "bg-muted text-foreground")
                   )}>
                     {msg.isLoading && msg.sender === 'bot' ? (
-                      <div className="flex items-center space-x-1 py-1"> {/* py-1 to match text line height roughly */}
+                      <div className="flex items-center space-x-1 py-1"> 
                         <span className="h-1.5 w-1.5 bg-foreground/70 rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></span>
                         <span className="h-1.5 w-1.5 bg-foreground/70 rounded-full animate-pulse" style={{ animationDelay: '200ms' }}></span>
                         <span className="h-1.5 w-1.5 bg-foreground/70 rounded-full animate-pulse" style={{ animationDelay: '400ms' }}></span>
                       </div>
                     ) : (
-                      <p className="leading-relaxed">{msg.text}</p>
+                      <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                     )}
                     
                     {!msg.isLoading && msg.contextName && (
@@ -260,7 +281,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
                     {!msg.isLoading && (
                        <p className={cn(
                           "mt-1 text-[0.6rem] text-muted-foreground/70",
-                          (msg.sender === 'bot' && !msg.isLoading) ? 'text-left' : 'text-right' // Adjust timestamp alignment for bot's reversed layout
+                          (msg.sender === 'bot' && !msg.isLoading) ? 'text-left' : 'text-right' 
                        )}>
                         {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
@@ -368,5 +389,4 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
 };
 
 export default ChatPanel;
-
     
