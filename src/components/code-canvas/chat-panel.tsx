@@ -194,7 +194,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
         </div>
 
         {selectedContextItem && (
-          <div className="flex items-center justify-between rounded-md bg-background/50 p-1.5 text-xs text-muted-foreground shadow-sm border border-border/50">
+          <div className="flex items-center justify-between rounded-md bg-background/50 p-1.5 text-xs text-muted-foreground shadow-sm border border-border/50 max-w-xs">
             <div className="flex items-center space-x-1.5 overflow-hidden">
               {selectedContextItem.type === 'folder' ? <Folder className="h-3.5 w-3.5 text-accent shrink-0" /> : <FileText className="h-3.5 w-3.5 shrink-0" />}
               <span className="truncate">
