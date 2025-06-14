@@ -135,13 +135,13 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
   const handleClearProjectView = () => {
     setProjectFiles([]); // This "removes" the project from the view
     setExpandedPaths(new Set()); // Clear expansion state
-    console.log("Project view cleared from explorer");
+    console.log("Project view cleared from explorer. Current project structure removed.");
   };
 
   const handleImportNewProject = () => {
     setProjectFiles(initialFilesData); // For simulation, reload the initial project
     setExpandedPaths(new Set(['/'])); // Reset expanded paths to show root
-    console.log("Import new project action triggered (reloaded initial files)");
+    console.log("Simulating: Would open OS directory picker to import a new project. For this prototype, reloading initial project data.");
   };
 
   return (
