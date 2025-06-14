@@ -27,7 +27,9 @@ interface FileExplorerPanelProps {
   onOpenFile: (file: FileItem) => void;
 }
 
-export const initialFiles: FileItem[] = [
+// This remains the source of truth for the initial project structure
+// and is also exported for use in other components like ChatPanel.
+export const initialFilesData: FileItem[] = [
   {
     name: 'PROJECT_ROOT',
     type: 'folder',
@@ -58,8 +60,8 @@ export const initialFiles: FileItem[] = [
 
 
 const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file: FileItem) => void; onToggleCollapse?: (path: string, expand?: boolean) => void; expandedPaths?: Set<string>; }> = ({ item, level = 0, onOpenFile, onToggleCollapse, expandedPaths }) => {
-  const isExplicitlyExpanded = expandedPaths ? expandedPaths.has(item.path) : level === 0; // Default open for root or if in set
-  const [isExpanded, setIsExpanded] = useState(level === 0); // Fallback for non-controlled collapse
+  const isExplicitlyExpanded = expandedPaths ? expandedPaths.has(item.path) : level === 0;
+  const [isExpanded, setIsExpanded] = useState(level === 0); 
 
   const currentIsExpanded = onToggleCollapse ? isExplicitlyExpanded : isExpanded;
 
@@ -109,7 +111,8 @@ const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file
 
 
 const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFile }) => {
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['/'])); // Keep root expanded by default
+  const [projectFiles, setProjectFiles] = useState<FileItem[]>(initialFilesData);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['/'])); 
 
   const toggleCollapse = (path: string, expand?: boolean) => {
     setExpandedPaths(prev => {
@@ -129,13 +132,16 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
     });
   };
 
-  const collapseAllFolders = () => {
-    setExpandedPaths(new Set(['/'])); 
-    console.log("Collapse all folders action triggered");
+  const handleClearProjectView = () => {
+    setProjectFiles([]); // This "removes" the project from the view
+    setExpandedPaths(new Set()); // Clear expansion state
+    console.log("Project view cleared from explorer");
   };
 
   const handleImportNewProject = () => {
-    console.log("Import new project action triggered");
+    setProjectFiles(initialFilesData); // For simulation, reload the initial project
+    setExpandedPaths(new Set(['/'])); // Reset expanded paths to show root
+    console.log("Import new project action triggered (reloaded initial files)");
   };
 
   return (
@@ -158,7 +164,7 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onSelect={collapseAllFolders}>
+                <DropdownMenuItem onSelect={handleClearProjectView}>
                   collapse project
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleImportNewProject}>
@@ -168,9 +174,15 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
             </DropdownMenu>
           </div>
           <ScrollArea className="flex-1">
-            {initialFiles.map((item) => (
-               <FileTreeItem key={item.path} item={item} onOpenFile={onOpenFile} onToggleCollapse={toggleCollapse} expandedPaths={expandedPaths} />
-            ))}
+            {projectFiles.length > 0 ? (
+              projectFiles.map((item) => (
+                 <FileTreeItem key={item.path} item={item} onOpenFile={onOpenFile} onToggleCollapse={toggleCollapse} expandedPaths={expandedPaths} />
+              ))
+            ) : (
+              <div className="p-4 text-center text-xs text-muted-foreground">
+                Project view cleared. <br /> Use "Import new project" to load files.
+              </div>
+            )}
           </ScrollArea>
         </div>
       )}
@@ -178,4 +190,8 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
   );
 };
 
+// Export initialFilesData as initialFiles for ChatPanel or other components
+// that might need the static project structure.
+export { initialFilesData as initialFiles };
 export default FileExplorerPanel;
+

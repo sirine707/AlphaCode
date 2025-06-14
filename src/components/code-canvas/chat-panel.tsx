@@ -10,7 +10,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { X, Paperclip, Mic, AtSign, Send, ChevronDown, Folder, FileText, ChevronRight, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileItem } from './file-explorer-panel';
-import { initialFiles } from './file-explorer-panel';
+import { initialFiles } from './file-explorer-panel'; // Uses the re-exported initialFilesData
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ChatPanelProps {
@@ -175,7 +175,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
       
       let detectedFile: string | null = null;
       for (const pattern of knownFilePatterns) {
-        const match = userMessage.text.match(pattern); // Match against original case text for accuracy
+        const match = userMessage.text.match(pattern); 
         if (match && match.length > 0) {
           detectedFile = match[0];
           break;
