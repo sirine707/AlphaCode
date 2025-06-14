@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import { ChevronDown, ChevronRight, Folder, File as FileIcon, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,8 +16,8 @@ import {
 export interface FileItem {
   name: string;
   type: 'file' | 'folder';
-  path: string; // Unique path for the item
-  content?: string; // Content for files
+  path: string; 
+  content?: string; 
   children?: FileItem[];
   icon?: React.ElementType;
 }
@@ -25,6 +25,11 @@ export interface FileItem {
 interface FileExplorerPanelProps {
   isOpen: boolean;
   onOpenFile: (file: FileItem) => void;
+  projectFiles: FileItem[];
+  expandedPaths: Set<string>;
+  onProjectFilesChange: (files: FileItem[]) => void;
+  onExpandedPathsChange: (paths: Set<string>) => void;
+  onToggleCollapse: (path: string) => void;
 }
 
 export const initialFilesData: FileItem[] = [
@@ -59,40 +64,35 @@ export const initialFilesData: FileItem[] = [
   }
 ];
 
-// Helper to build the tree from FileList
 function buildFileTreeFromBrowserFileList(fileList: FileList): FileItem[] {
   if (!fileList || fileList.length === 0) {
     return [];
   }
 
-  // Determine the project root name from the first file's path
   const firstFilePathParts = fileList[0].webkitRelativePath.split('/');
   const projectRootName = firstFilePathParts[0] || 'IMPORTED_PROJECT';
 
   const rootDirectory: FileItem = {
     name: projectRootName,
     type: 'folder',
-    path: `/${projectRootName}`, // Path for the root is just its name prefixed by /
+    path: `/${projectRootName}`,
     children: [],
     icon: Folder,
   };
 
   for (let i = 0; i < fileList.length; i++) {
     const file = fileList[i];
-    // e.g., "MyProject/src/app.py" -> ["MyProject", "src", "app.py"]
     const pathParts = file.webkitRelativePath.split('/'); 
     
     let currentChildren = rootDirectory.children!;
-    let currentPath = `/${projectRootName}`; // Start path from the root
+    let currentPath = `/${projectRootName}`; 
 
-    // Iterate starting from the second part (e.g., "src") because the first part is the root.
     for (let j = 1; j < pathParts.length; j++) {
       const part = pathParts[j];
       const isLastPart = j === pathParts.length - 1;
       const nodePath = `${currentPath}/${part}`;
 
-      if (isLastPart) { // It's a file
-        // Check if file already exists (e.g. if somehow listed twice, though unlikely for webkitdirectory)
+      if (isLastPart) { 
         if (!currentChildren.find(child => child.name === part && child.type === 'file')) {
           currentChildren.push({
             name: part,
@@ -102,7 +102,7 @@ function buildFileTreeFromBrowserFileList(fileList: FileList): FileItem[] {
             icon: FileIcon,
           });
         }
-      } else { // It's a folder
+      } else { 
         let folderNode = currentChildren.find(child => child.name === part && child.type === 'folder');
         if (!folderNode) {
           folderNode = {
@@ -115,29 +115,21 @@ function buildFileTreeFromBrowserFileList(fileList: FileList): FileItem[] {
           currentChildren.push(folderNode);
         }
         currentChildren = folderNode.children!;
-        currentPath = nodePath; // Update currentPath to the path of this folder
+        currentPath = nodePath; 
       }
     }
   }
-  return [rootDirectory]; // Return as an array with the single root project folder
+  return [rootDirectory];
 }
 
 
-const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file: FileItem) => void; onToggleCollapse?: (path: string, expand?: boolean) => void; expandedPaths?: Set<string>; }> = ({ item, level = 0, onOpenFile, onToggleCollapse, expandedPaths }) => {
-  const isExplicitlyExpanded = expandedPaths ? expandedPaths.has(item.path) : level === 0;
-  const [isExpanded, setIsExpanded] = useState(level === 0); 
-
-  const currentIsExpanded = onToggleCollapse ? isExplicitlyExpanded : isExpanded;
-
+const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file: FileItem) => void; onToggleCollapse: (path: string) => void; expandedPaths: Set<string>; }> = ({ item, level = 0, onOpenFile, onToggleCollapse, expandedPaths }) => {
+  const currentIsExpanded = expandedPaths.has(item.path);
   const Icon = item.icon || (item.type === 'folder' ? Folder : FileIcon);
 
   const handleToggle = () => {
     if (item.type === 'folder') {
-      if (onToggleCollapse) {
-        onToggleCollapse(item.path);
-      } else {
-        setIsExpanded(!isExpanded);
-      }
+      onToggleCollapse(item.path);
     } else {
       onOpenFile(item);
     }
@@ -148,9 +140,8 @@ const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file
       <div
         className={cn(
           "flex cursor-pointer items-center space-x-2 rounded-md px-2 py-1.5 text-sm hover:bg-primary/10",
-          level > 0 && "pl-4" // This might be redundant with style-based padding
         )}
-        style={{ paddingLeft: `${level * 1 + 0.5}rem` }} // Dynamic padding based on level
+        style={{ paddingLeft: `${level * 1 + 0.5}rem` }} 
         onClick={handleToggle}
         role="button"
         tabIndex={0}
@@ -163,7 +154,7 @@ const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file
         <span>{item.name}</span>
       </div>
       {currentIsExpanded && item.children && (
-        <div className="pl-0"> {/* Ensure children don't get double padding from here */}
+        <div className="pl-0"> 
           {item.children.map((child) => (
             <FileTreeItem key={child.path} item={child} level={level + 1} onOpenFile={onOpenFile} onToggleCollapse={onToggleCollapse} expandedPaths={expandedPaths} />
           ))}
@@ -174,33 +165,21 @@ const FileTreeItem: React.FC<{ item: FileItem; level?: number; onOpenFile: (file
 };
 
 
-const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFile }) => {
-  const [projectFiles, setProjectFiles] = useState<FileItem[]>(initialFilesData);
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(initialFilesData[0]?.path ? [initialFilesData[0].path] : ['/'])); 
+const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ 
+  isOpen, 
+  onOpenFile,
+  projectFiles,
+  expandedPaths,
+  onProjectFilesChange,
+  onExpandedPathsChange,
+  onToggleCollapse
+ }) => {
   const directoryInputRef = useRef<HTMLInputElement>(null);
 
-  const toggleCollapse = (path: string, expand?: boolean) => {
-    setExpandedPaths(prev => {
-      const newPaths = new Set(prev);
-      if (expand === true) {
-        newPaths.add(path);
-      } else if (expand === false) {
-        newPaths.delete(path);
-      } else {
-        if (newPaths.has(path)) {
-          newPaths.delete(path);
-        } else {
-          newPaths.add(path);
-        }
-      }
-      return newPaths;
-    });
-  };
-
   const handleClearProjectView = () => {
-    setProjectFiles([]); 
-    setExpandedPaths(new Set());
-    console.log("Project view cleared from explorer. Current project structure removed.");
+    onProjectFilesChange([]); 
+    onExpandedPathsChange(new Set());
+    console.log("Project view cleared from explorer.");
   };
 
   const handleImportNewProject = () => {
@@ -214,11 +193,11 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
     if (files && files.length > 0) {
       console.log("Directory selected. Files found:", files.length);
       const newProjectTree = buildFileTreeFromBrowserFileList(files);
-      setProjectFiles(newProjectTree);
+      onProjectFilesChange(newProjectTree);
       if (newProjectTree.length > 0 && newProjectTree[0]?.path) {
-        setExpandedPaths(new Set([newProjectTree[0].path]));
+        onExpandedPathsChange(new Set([newProjectTree[0].path]));
       } else {
-        setExpandedPaths(new Set());
+        onExpandedPathsChange(new Set());
       }
     }
     if (directoryInputRef.current) {
@@ -258,7 +237,7 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
           <ScrollArea className="flex-1">
             {projectFiles.length > 0 ? (
               projectFiles.map((item) => (
-                 <FileTreeItem key={item.path} item={item} level={0} onOpenFile={onOpenFile} onToggleCollapse={toggleCollapse} expandedPaths={expandedPaths} />
+                 <FileTreeItem key={item.path} item={item} level={0} onOpenFile={onOpenFile} onToggleCollapse={onToggleCollapse} expandedPaths={expandedPaths} />
               ))
             ) : (
               <div className="p-4 text-center text-xs text-muted-foreground">
@@ -271,8 +250,8 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
             ref={directoryInputRef}
             onChange={handleDirectorySelected}
             style={{ display: 'none' }}
-            webkitdirectory="" // Important for directory selection
-            directory="" // Fallback for some browsers/specs
+            webkitdirectory="" 
+            directory="" 
             aria-hidden="true"
           />
         </div>
