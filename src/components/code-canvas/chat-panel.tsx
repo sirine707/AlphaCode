@@ -6,17 +6,111 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { X, Paperclip, Mic, AtSign, Send, ChevronDown } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { X, Paperclip, Mic, AtSign, Send, ChevronDown, Folder, FileText, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { FileItem } from './file-explorer-panel';
+import { initialFiles } from './file-explorer-panel'; // Import initialFiles
 
 interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface ContextFileTreeItemProps {
+  item: FileItem;
+  level?: number;
+  onToggleExpand: (path: string) => void;
+  onSelectFile: (file: FileItem) => void;
+  expandedPaths: Set<string>;
+}
+
+const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
+  item,
+  level = 0,
+  onToggleExpand,
+  onSelectFile,
+  expandedPaths,
+}) => {
+  const isExpanded = expandedPaths.has(item.path);
+  const Icon = item.type === 'folder' ? Folder : FileText;
+
+  const handleItemClick = () => {
+    if (item.type === 'folder') {
+      onToggleExpand(item.path);
+    } else {
+      onSelectFile(item);
+    }
+  };
+
+  return (
+    <div className="text-xs">
+      <div
+        className="flex cursor-pointer items-center space-x-1.5 rounded-md px-1.5 py-1 hover:bg-primary/10"
+        style={{ paddingLeft: `${level * 0.75 + 0.375}rem` }}
+        onClick={handleItemClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleItemClick()}
+        aria-label={item.name}
+        aria-expanded={item.type === 'folder' ? isExpanded : undefined}
+      >
+        {item.type === 'folder' ? (
+          isExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+          )
+        ) : (
+          <div className="w-3.5 h-3.5 shrink-0"></div> // Placeholder for file icon alignment
+        )}
+        <Icon className={cn("h-3.5 w-3.5 shrink-0", item.type === 'folder' ? 'text-accent' : 'text-muted-foreground')} />
+        <span>{item.name}</span>
+      </div>
+      {isExpanded && item.children && (
+        <div>
+          {item.children.map((child) => (
+            <ContextFileTreeItem
+              key={child.path}
+              item={child}
+              level={level + 1}
+              onToggleExpand={onToggleExpand}
+              onSelectFile={onSelectFile}
+              expandedPaths={expandedPaths}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
   const [inputValue, setInputValue] = useState('');
   const [selectedModel, setSelectedModel] = useState('Claude Sonnet 3.7');
+  const [isContextPopoverOpen, setIsContextPopoverOpen] = useState(false);
+  const [expandedContextPaths, setExpandedContextPaths] = useState<Set<string>>(new Set(['/']));
+
+
+  const handleToggleContextExpand = (path: string) => {
+    setExpandedContextPaths(prev => {
+      const newPaths = new Set(prev);
+      if (newPaths.has(path)) {
+        newPaths.delete(path);
+      } else {
+        newPaths.add(path);
+      }
+      return newPaths;
+    });
+  };
+
+  const handleSelectContextFile = (file: FileItem) => {
+    console.log('Selected for context:', file.path);
+    // Potentially add file to a list of context items, or directly into input
+    setIsContextPopoverOpen(false); // Close popover after selection
+  };
+
 
   if (!isOpen) {
     return null;
@@ -33,7 +127,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
       <div className="flex items-center justify-between p-3 border-b border-border">
         <h2 className="text-sm font-semibold uppercase text-muted-foreground">CHAT</h2>
         <div className="flex items-center space-x-1">
-          {/* Placeholder for other header icons if needed later */}
           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -42,7 +135,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
 
       {/* Message Area */}
       <ScrollArea className="flex-1 p-3">
-        {/* Placeholder for chat messages */}
         <div className="text-xs text-muted-foreground text-center py-10">
           Ask Copilot anything...
         </div>
@@ -51,10 +143,30 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
       {/* Input Area */}
       <div className="p-3 border-t border-border space-y-2">
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-            <Paperclip className="h-4 w-4" />
-            <span className="sr-only">Add Context</span>
-          </Button>
+          <Popover open={isContextPopoverOpen} onOpenChange={setIsContextPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                <Paperclip className="h-4 w-4" />
+                <span className="sr-only">Add Context</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="start">
+              <div className="p-2 border-b border-border">
+                <h3 className="text-xs font-medium text-foreground">Attach Files or Folders</h3>
+              </div>
+              <ScrollArea className="h-[250px] p-2">
+                {initialFiles.map((item) => (
+                  <ContextFileTreeItem
+                    key={item.path}
+                    item={item}
+                    onToggleExpand={handleToggleContextExpand}
+                    onSelectFile={handleSelectContextFile}
+                    expandedPaths={expandedContextPaths}
+                  />
+                ))}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
           <Input
             type="text"
             placeholder="Ask Copilot"

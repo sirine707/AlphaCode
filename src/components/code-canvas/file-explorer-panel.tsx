@@ -27,7 +27,7 @@ interface FileExplorerPanelProps {
   onOpenFile: (file: FileItem) => void;
 }
 
-const initialFiles: FileItem[] = [
+export const initialFiles: FileItem[] = [
   {
     name: 'PROJECT_ROOT',
     type: 'folder',
@@ -129,20 +129,13 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
     });
   };
 
-  const collapseAllFolders = (items: FileItem[]) => {
-    const newPaths = new Set<string>();
-    // Keep root or top-level items always somewhat visible or controlled
-    items.forEach(item => {
-      if (item.path === '/') newPaths.add(item.path); // Keep root expanded if desired, or handle differently
-    });
-    // For a true "collapse all", clear all but potentially the root
-    setExpandedPaths(new Set(['/'])); // Or an empty set if root should also collapse: new Set()
+  const collapseAllFolders = () => {
+    setExpandedPaths(new Set(['/'])); 
     console.log("Collapse all folders action triggered");
   };
 
   const handleImportNewProject = () => {
     console.log("Import new project action triggered");
-    // Actual import logic would go here
   };
 
   return (
@@ -165,7 +158,7 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({ isOpen, onOpenFil
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onSelect={() => collapseAllFolders(initialFiles)}>
+                <DropdownMenuItem onSelect={collapseAllFolders}>
                   collapse project
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleImportNewProject}>
