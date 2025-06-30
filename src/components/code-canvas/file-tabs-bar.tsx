@@ -1,8 +1,15 @@
 
 import type React from 'react';
-import { X } from 'lucide-react';
+import { Play, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileItem } from './file-explorer-panel';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface FileTabsBarProps {
   openFiles: FileItem[];
@@ -17,14 +24,6 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
   onTabClick,
   onCloseTab,
 }) => {
-  if (openFiles.length === 0) {
-    return (
-      <div className="flex h-10 items-end border-b border-border bg-card px-1 shadow-sm">
-        {/* Optionally, display a placeholder or nothing when no file is open */}
-      </div>
-    );
-  }
-
   const getFileIcon = (fileName: string) => {
     if (fileName.endsWith('.py')) {
       return (
@@ -79,37 +78,68 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
   };
 
   return (
-    <div className="flex h-10 items-end border-b border-border bg-card px-1 shadow-sm overflow-x-auto">
-      {openFiles.map((file) => (
-        <div
-          key={file.path}
-          className={cn(
-            "flex h-full cursor-pointer items-center space-x-2 border-r border-t border-border px-4 pt-1 text-sm",
-            activeFilePath === file.path
-              ? "bg-background text-foreground shadow-[0px_-2px_5px_-2px_rgba(0,0,0,0.1)] border-primary relative after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-primary"
-              : "bg-card text-muted-foreground hover:bg-background/70 hover:text-foreground"
+    <TooltipProvider delayDuration={300}>
+      <div className="flex h-10 items-center justify-between border-b border-border bg-card px-1 shadow-sm">
+        <div className="flex h-full flex-1 items-end overflow-x-auto">
+          {openFiles.length === 0 ? (
+            <div className="flex h-full items-center pl-3 text-xs text-muted-foreground italic">
+              {/* Placeholder when no files are open */}
+            </div>
+          ) : (
+            openFiles.map((file) => (
+              <div
+                key={file.path}
+                className={cn(
+                  "flex h-full cursor-pointer items-center space-x-2 border-r border-t border-border px-4 pt-1 text-sm",
+                  activeFilePath === file.path
+                    ? "bg-background text-foreground shadow-[0px_-2px_5px_-2px_rgba(0,0,0,0.1)] border-primary relative after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-primary"
+                    : "bg-card text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                )}
+                title={file.name}
+                onClick={() => onTabClick(file.path)}
+              >
+                {getFileIcon(file.name)}
+                <span className="truncate max-w-[150px]">{file.name}</span>
+                <button
+                  className={cn(
+                    "ml-auto rounded p-0.5 hover:bg-muted-foreground/20",
+                    activeFilePath === file.path ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  aria-label={`Close tab ${file.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent click from bubbling to the tab itself
+                    onCloseTab(file.path);
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))
           )}
-          title={file.name}
-          onClick={() => onTabClick(file.path)}
-        >
-          {getFileIcon(file.name)}
-          <span className="truncate max-w-[150px]">{file.name}</span>
-          <button
-            className={cn(
-              "ml-auto rounded p-0.5 hover:bg-muted-foreground/20",
-              activeFilePath === file.path ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-            aria-label={`Close tab ${file.name}`}
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent click from bubbling to the tab itself
-              onCloseTab(file.path);
-            }}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
         </div>
-      ))}
-    </div>
+
+        <div className="flex items-center pr-2">
+          {openFiles.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-green-400"
+                  onClick={() => console.log(`Running code for ${activeFilePath}...`)}
+                  aria-label="Run Code"
+                >
+                  <Play className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="bg-card text-foreground border-border text-xs p-1">
+                <p>Run Code</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      </div>
+    </TooltipProvider>
   );
 };
 
