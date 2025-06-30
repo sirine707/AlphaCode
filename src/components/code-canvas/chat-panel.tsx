@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import type { FileItem } from './file-explorer-panel';
 import { initialFiles } from './file-explorer-panel'; // Uses the re-exported initialFilesData
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { explainFile } from '@/ai/flows/explain-file-flow';
+import type { ExplainFileInput } from '@/ai/schemas/explain-file-schemas';
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -140,7 +142,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
     setIsContextPopoverOpen(false);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
     const userMessage: ChatMessage = {
@@ -160,16 +162,35 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
       isLoading: true,
       timestamp: new Date(),
     };
-
+    
     setMessages(prevMessages => [...prevMessages, userMessage, botLoadingMessage]);
+    
+    const currentInputValue = inputValue;
+    const currentSelectedContextItem = selectedContextItem;
+    
     setInputValue('');
     setSelectedContextItem(null);
 
-    // Simulate bot response
-    setTimeout(() => {
-      let botReplyText = `Simulated reply to: "${userMessage.text}"`; 
+    let botReplyText: string;
 
-      const lowerCaseText = userMessage.text.toLowerCase();
+    const lowerCaseText = currentInputValue.toLowerCase();
+    const isExplanationRequest = lowerCaseText.includes('explain') && currentSelectedContextItem?.type === 'file' && currentSelectedContextItem.content;
+
+    if (isExplanationRequest) {
+      try {
+        const input: ExplainFileInput = {
+          filePath: currentSelectedContextItem.path,
+          fileContent: currentSelectedContextItem.content || '',
+        };
+        botReplyText = await explainFile(input);
+      } catch (error) {
+        console.error("Error explaining file:", error);
+        botReplyText = "Sorry, I had trouble explaining that file. Please try again.";
+      }
+    } else {
+      // Simulate bot response for other cases
+      await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
+      botReplyText = `Simulated reply to: "${userMessage.text}"`;
       const fileModificationKeywords = ['modify', 'change', 'update', 'edit', 'write to', 'add to'];
       const knownFilePatterns = [/\b\w+\.py\b/g, /\b\w+\.js\b/g, /\b\w+\.json\b/g, /\b\w+\.md\b/g, /\b\w+\.txt\b/g, /\b\w+\.tsx\b/g, /\b\w+\.css\b/g];
       
@@ -187,18 +208,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
       if (isModificationRequest) {
         botReplyText = `Understood. I will ask the file modification agent to process your request for \`${detectedFile}\`.`;
       }
+    }
 
-      setMessages(prevMessages => {
-        const messagesWithoutLoading = prevMessages.filter(msg => !msg.isLoading);
-        const botReply: ChatMessage = {
-          id: Date.now().toString() + '-bot',
-          text: botReplyText,
-          sender: 'bot',
-          timestamp: new Date(),
-        };
-        return [...messagesWithoutLoading, botReply];
-      });
-    }, 2000 + Math.random() * 1000); 
+    setMessages(prevMessages => {
+      const messagesWithoutLoading = prevMessages.filter(msg => !msg.isLoading);
+      const botReply: ChatMessage = {
+        id: Date.now().toString() + '-bot',
+        text: botReplyText,
+        sender: 'bot',
+        timestamp: new Date(),
+      };
+      return [...messagesWithoutLoading, botReply];
+    });
   };
 
   useEffect(() => {
