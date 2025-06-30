@@ -40,7 +40,10 @@ const explainFileFlow = ai.defineFlow(
     outputSchema: ExplainFileOutputSchema,
   },
   async input => {
-    const llmResponse = await explainFilePrompt(input);
-    return llmResponse.trim();
+    const { output } = await explainFilePrompt(input);
+    if (!output) {
+        throw new Error("The AI model did not return an explanation.");
+    }
+    return output.trim();
   }
 );
