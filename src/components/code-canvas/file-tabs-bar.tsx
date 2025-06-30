@@ -81,24 +81,23 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
     <TooltipProvider delayDuration={300}>
       <div className="flex h-10 items-center border-b border-border bg-card px-1 shadow-sm">
         <div className="flex items-center px-2">
-          {openFiles.length > 0 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-primary hover:bg-primary/20"
-                  onClick={() => console.log(`Running code for ${activeFilePath}...`)}
-                  aria-label="Run Code"
-                >
-                  <Play className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="bg-card text-foreground border-border text-xs p-1">
-                <p>Run Code</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-primary hover:bg-primary/20"
+                onClick={() => console.log(`Running code for ${activeFilePath}...`)}
+                aria-label="Run Code"
+                disabled={openFiles.length === 0}
+              >
+                <Play className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="bg-card text-foreground border-border text-xs p-1">
+              <p>Run Code</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
         <div className="flex h-full flex-1 items-end overflow-x-auto">
           {openFiles.length === 0 ? (
