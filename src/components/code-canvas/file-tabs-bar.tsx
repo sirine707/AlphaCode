@@ -128,7 +128,7 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
                 className="h-7 w-7 text-primary hover:bg-primary/20"
                 onClick={onRunClick}
                 aria-label="Run Code"
-                disabled={openFiles.length === 0}
+                disabled={!activeFilePath}
               >
                 <Play className="h-4 w-4" />
               </Button>
