@@ -44,41 +44,42 @@ const CodeCanvasLayout: React.FC = () => {
 
   const handleOpenFile = useCallback((file: FileItem) => {
     if (file.type === 'file') {
-      setOpenFiles((prevOpenFiles) => {
-        if (prevOpenFiles.find(f => f.path === file.path)) {
-          setActiveFilePath(file.path); // Set as active if already open
-          return prevOpenFiles;
-        }
-        return [...prevOpenFiles, file];
-      });
+      // If file is not already open, add it to the open files list.
+      if (!openFiles.some(f => f.path === file.path)) {
+        setOpenFiles(prev => [...prev, file]);
+      }
+      
+      // Set the clicked file as the active file.
       setActiveFilePath(file.path);
+
       // If explorer is not active, switch to it and ensure side panel is visible
       if (activeView !== 'explorer' || !isSidePanelVisible) {
         setActiveView('explorer');
         setIsSidePanelVisible(true);
       }
     }
-  }, [activeView, isSidePanelVisible]);
+  }, [openFiles, activeView, isSidePanelVisible]);
 
   const handleCloseFile = useCallback((filePathToClose: string) => {
-    setOpenFiles((prevOpenFiles) => {
-      const fileIndex = prevOpenFiles.findIndex(f => f.path === filePathToClose);
-      if (fileIndex === -1) return prevOpenFiles;
+    const fileIndex = openFiles.findIndex(f => f.path === filePathToClose);
+    if (fileIndex === -1) return;
 
-      const updatedOpenFiles = prevOpenFiles.filter(f => f.path !== filePathToClose);
+    const updatedOpenFiles = openFiles.filter(f => f.path !== filePathToClose);
+    setOpenFiles(updatedOpenFiles);
 
-      if (activeFilePath === filePathToClose) {
-        if (updatedOpenFiles.length === 0) {
-          setActiveFilePath(null);
-        } else {
-          // Try to activate the tab to the right, or to the left if it's the last one
-          const newActiveIndex = fileIndex >= updatedOpenFiles.length ? updatedOpenFiles.length - 1 : fileIndex;
-          setActiveFilePath(updatedOpenFiles[newActiveIndex]?.path || null);
-        }
+    // If the closed file was the active one, determine the next active file.
+    if (activeFilePath === filePathToClose) {
+      if (updatedOpenFiles.length === 0) {
+        setActiveFilePath(null);
+      } else {
+        // Try to activate the tab to the right, or to the left if it was the last one.
+        const newActiveIndex = fileIndex >= updatedOpenFiles.length 
+          ? updatedOpenFiles.length - 1 
+          : fileIndex;
+        setActiveFilePath(updatedOpenFiles[newActiveIndex]?.path || null);
       }
-      return updatedOpenFiles;
-    });
-  }, [activeFilePath]);
+    }
+  }, [openFiles, activeFilePath]);
 
   const handleSwitchTab = useCallback((filePath: string) => {
     setActiveFilePath(filePath);
