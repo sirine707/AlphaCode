@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { detectLanguage } from '@/ai/flows/detect-language-flow';
 
 const defaultWelcomeMessage = `
 # Welcome to CodeCanvas!
@@ -13,55 +12,24 @@ interface CodeEditorAreaProps {
   fileContent?: string;
   fileName?: string;
   filePath?: string | null; // Used to detect when active file changes
-  onLanguageChange: (language: string | null) => void;
+  onContentChange: (newContent: string) => void;
 }
 
-const CodeEditorArea: React.FC<CodeEditorAreaProps> = ({ fileContent, fileName, filePath, onLanguageChange }) => {
+const CodeEditorArea: React.FC<CodeEditorAreaProps> = ({ fileContent, fileName, filePath, onContentChange }) => {
   const [code, setCode] = useState(fileContent !== undefined ? fileContent : defaultWelcomeMessage);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const newContent = fileContent !== undefined ? fileContent : defaultWelcomeMessage;
     setCode(newContent);
-    // When a new file is loaded, immediately clear the language.
-    // The detection will run in the next effect.
-    onLanguageChange(null);
-  }, [fileContent, filePath, onLanguageChange]);
-
-  useEffect(() => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-
-    // Trigger detection for reasonably short, potentially valid code.
-    if (code && filePath && code !== defaultWelcomeMessage && code.trim().length >= 5) {
-      debounceTimeoutRef.current = setTimeout(async () => {
-        onLanguageChange('loading'); // Indicate that detection is in progress
-        try {
-          const language = await detectLanguage(code);
-          onLanguageChange(language);
-        } catch (error) {
-          console.error("Failed to detect language:", error);
-          onLanguageChange('Error'); // Show an error state
-        }
-      }, 1500); // 1.5-second debounce
-    } else {
-      // For very short code or no file, just set to Plain Text without calling AI
-      onLanguageChange('Plain Text');
-    }
-
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-    };
-  }, [code, filePath, onLanguageChange]);
+  }, [fileContent, filePath]);
 
   const lines = code.split('\n');
   const lineCount = lines.length;
 
   const handleCodeChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setCode(event.target.value);
+    const newCode = event.target.value;
+    setCode(newCode);
+    onContentChange(newCode);
   };
 
   return (

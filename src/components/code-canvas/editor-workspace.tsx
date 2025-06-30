@@ -2,16 +2,18 @@
 "use client";
 
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import FileTabsBar from './file-tabs-bar';
 import CodeEditorArea from './code-editor-area';
 import type { FileItem } from './file-explorer-panel';
+import { detectLanguage } from '@/ai/flows/detect-language-flow';
 
 interface EditorWorkspaceProps {
   openFiles: FileItem[];
   activeFilePath: string | null;
   onCloseTab: (filePath: string) => void;
-  onSwitchTab: (filePath: string) => void;
+  onSwitchTab: (filePath:string) => void;
+  onFileContentChange: (filePath: string, newContent: string) => void;
 }
 
 const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
@@ -19,6 +21,7 @@ const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   activeFilePath,
   onCloseTab,
   onSwitchTab,
+  onFileContentChange,
 }) => {
   const activeFile = openFiles.find(file => file.path === activeFilePath) || null;
   const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null);
@@ -28,6 +31,19 @@ const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     setDetectedLanguage(null);
   }, [activeFilePath]);
 
+  const handleRunDetection = useCallback(async () => {
+    if (activeFile?.content && activeFile.content.trim().length > 0) {
+      setDetectedLanguage('loading');
+      try {
+        const language = await detectLanguage(activeFile.content);
+        setDetectedLanguage(language);
+      } catch (error) {
+        console.error("Failed to detect language:", error);
+        setDetectedLanguage('Error');
+      }
+    }
+  }, [activeFile?.content]);
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden relative">
       <FileTabsBar
@@ -35,12 +51,17 @@ const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         activeFilePath={activeFilePath}
         onCloseTab={onCloseTab}
         onTabClick={onSwitchTab}
+        onRunClick={handleRunDetection}
       />
       <CodeEditorArea
         fileContent={activeFile?.content}
         fileName={activeFile?.name || "Untitled"}
         filePath={activeFile?.path}
-        onLanguageChange={setDetectedLanguage}
+        onContentChange={(newContent) => {
+          if (activeFile?.path) {
+            onFileContentChange(activeFile.path, newContent);
+          }
+        }}
       />
       {activeFilePath && (
         <div className="absolute bottom-2 right-4 text-xs text-muted-foreground select-none">

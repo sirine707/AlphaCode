@@ -84,6 +84,14 @@ const CodeCanvasLayout: React.FC = () => {
     setActiveFilePath(filePath);
   }, []);
 
+  const handleFileContentChange = useCallback((filePath: string, newContent: string) => {
+    setOpenFiles(prevOpenFiles =>
+      prevOpenFiles.map(file =>
+        file.path === filePath ? { ...file, content: newContent } : file
+      )
+    );
+  }, []);
+
   // Handlers for FileExplorerPanel state
   const handleExplorerProjectFilesChange = useCallback((newFiles: FileItem[]) => {
     setExplorerProjectFiles(newFiles);
@@ -143,6 +151,7 @@ const CodeCanvasLayout: React.FC = () => {
           activeFilePath={activeFilePath}
           onCloseTab={handleCloseFile}
           onSwitchTab={handleSwitchTab}
+          onFileContentChange={handleFileContentChange}
         />
         <ChatPanel isOpen={isChatPanelOpen} onClose={toggleChatPanel} />
       </div>

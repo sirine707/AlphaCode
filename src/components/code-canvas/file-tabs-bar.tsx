@@ -16,6 +16,7 @@ interface FileTabsBarProps {
   activeFilePath: string | null;
   onTabClick: (filePath: string) => void;
   onCloseTab: (filePath: string) => void;
+  onRunClick: () => void;
 }
 
 const FileTabsBar: React.FC<FileTabsBarProps> = ({
@@ -23,6 +24,7 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
   activeFilePath,
   onTabClick,
   onCloseTab,
+  onRunClick,
 }) => {
   const getFileIcon = (fileName: string) => {
     if (fileName.endsWith('.py')) {
@@ -124,7 +126,7 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 text-primary hover:bg-primary/20"
-                onClick={() => console.log(`Running code for ${activeFilePath}...`)}
+                onClick={onRunClick}
                 aria-label="Run Code"
                 disabled={openFiles.length === 0}
               >
