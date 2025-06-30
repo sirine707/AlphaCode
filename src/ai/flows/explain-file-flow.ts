@@ -10,11 +10,11 @@ import {
   ExplainFileInputSchema,
   ExplainFileOutputSchema,
   type ExplainFileInput,
-  type ExplainFileOutput,
 } from '@/ai/schemas/explain-file-schemas';
 
-export async function explainFile(input: ExplainFileInput): Promise<ExplainFileOutput> {
-  return explainFileFlow(input);
+export async function explainFile(input: ExplainFileInput): Promise<string> {
+  const result = await explainFileFlow(input);
+  return result.explanation;
 }
 
 const explainFilePrompt = ai.definePrompt({
@@ -41,9 +41,9 @@ const explainFileFlow = ai.defineFlow(
   },
   async input => {
     const { output } = await explainFilePrompt(input);
-    if (!output) {
+    if (!output || !output.explanation) {
         throw new Error("The AI model did not return an explanation.");
     }
-    return output.trim();
+    return output;
   }
 );

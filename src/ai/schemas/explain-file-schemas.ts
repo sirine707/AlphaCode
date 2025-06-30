@@ -6,5 +6,7 @@ export const ExplainFileInputSchema = z.object({
 });
 export type ExplainFileInput = z.infer<typeof ExplainFileInputSchema>;
 
-export const ExplainFileOutputSchema = z.string().describe('The explanation of the file.');
+export const ExplainFileOutputSchema = z.object({
+  explanation: z.string().describe('The explanation of the file.'),
+});
 export type ExplainFileOutput = z.infer<typeof ExplainFileOutputSchema>;
