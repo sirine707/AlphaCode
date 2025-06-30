@@ -23,6 +23,21 @@ export async function detectLanguage(code: DetectLanguageInput): Promise<DetectL
     return detectLanguageFlow(code);
 }
 
+const languageDetectionPrompt = ai.definePrompt({
+  name: 'languageDetectionPrompt',
+  input: { schema: DetectLanguageInputSchema },
+  output: { schema: DetectLanguageOutputSchema },
+  prompt: `Analyze the following code snippet and identify its programming language.
+Respond with only the common name of the language (e.g., Python, JavaScript, HTML, CSS).
+If you cannot determine the language, respond with "Plain Text".
+
+Code:
+\`\`\`
+{{{input}}}
+\`\`\`
+`,
+});
+
 const detectLanguageFlow = ai.defineFlow(
   {
     name: 'detectLanguageFlow',
@@ -30,21 +45,7 @@ const detectLanguageFlow = ai.defineFlow(
     outputSchema: DetectLanguageOutputSchema,
   },
   async (input) => {
-    
-    const prompt = `Analyze the following code snippet and identify its programming language.
-Respond with only the common name of the language (e.g., Python, JavaScript, HTML, CSS).
-If you cannot determine the language, respond with "Plain Text".
-
-Code:
-\`\`\`
-${input}
-\`\`\`
-`;
-    
-    const llmResponse = await ai.generate({
-        prompt: prompt,
-    });
-
-    return llmResponse.text.trim();
+    const llmResponse = await languageDetectionPrompt(input);
+    return llmResponse.trim();
   }
 );
