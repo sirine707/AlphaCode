@@ -33,7 +33,8 @@ const CodeEditorArea: React.FC<CodeEditorAreaProps> = ({ fileContent, fileName, 
       clearTimeout(debounceTimeoutRef.current);
     }
 
-    if (code && filePath && code !== defaultWelcomeMessage && code.trim().length > 10) {
+    // Trigger detection for reasonably short, potentially valid code.
+    if (code && filePath && code !== defaultWelcomeMessage && code.trim().length >= 5) {
       debounceTimeoutRef.current = setTimeout(async () => {
         onLanguageChange('loading'); // Indicate that detection is in progress
         try {
@@ -45,7 +46,7 @@ const CodeEditorArea: React.FC<CodeEditorAreaProps> = ({ fileContent, fileName, 
         }
       }, 1500); // 1.5-second debounce
     } else {
-      // For short code or no file, just set to Plain Text without calling AI
+      // For very short code or no file, just set to Plain Text without calling AI
       onLanguageChange('Plain Text');
     }
 

@@ -17,7 +17,7 @@ const DetectLanguageOutputSchema = z.string().describe('The detected programming
 export type DetectLanguageOutput = z.infer<typeof DetectLanguageOutputSchema>;
 
 export async function detectLanguage(code: DetectLanguageInput): Promise<DetectLanguageOutput> {
-    if (!code || code.trim().length < 10) {
+    if (!code || code.trim().length === 0) {
         return "Plain Text";
     }
     return detectLanguageFlow(code);
