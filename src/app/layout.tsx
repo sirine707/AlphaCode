@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'CodeCanvas',
+  title: 'AlphaCode',
   description: 'A modern developer interface inspired by Visual Studio Code.',
 };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import ActivityBar from "./activity-bar";
 import FileExplorerPanel, {
   type FileItem,
@@ -13,6 +14,7 @@ import SourceControlPanel from "./source-control-panel";
 import ExtensionsPanel from "./extensions-panel";
 import SettingsPanel from "./settings-panel";
 import ChatPanel from "./chat-panel";
+import { detectLanguage } from "@/lib/language-detection";
 
 export type ActiveView =
   | "explorer"
@@ -148,22 +150,16 @@ const CodeCanvasLayout: React.FC = () => {
     });
   }, []);
 
-  return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-code">
-      <TitleBar
-        onToggleChatPanel={toggleChatPanel}
-        onToggleAutocompletionPanel={toggleAutocompletion}
-        isAutocompletionEnabled={isAutocompletionEnabled}
-      />
-      <div className="flex flex-1 overflow-hidden relative">
-        <ActivityBar
-          activeViewId={activeView}
-          onViewChange={handleViewChange}
-          isSidePanelOpen={isSidePanelVisible}
-        />
-        {activeView === "explorer" && isSidePanelVisible && (
+  const renderSidePanel = () => {
+    if (!activeView || !isSidePanelVisible) return null;
+
+    const panelProps = { isOpen: isSidePanelVisible };
+
+    switch (activeView) {
+      case "explorer":
+        return (
           <FileExplorerPanel
-            isOpen={isSidePanelVisible}
+            {...panelProps}
             onOpenFile={handleOpenFile}
             projectFiles={explorerProjectFiles}
             expandedPaths={explorerExpandedPaths}
@@ -171,28 +167,99 @@ const CodeCanvasLayout: React.FC = () => {
             onExpandedPathsChange={handleExplorerExpandedPathsChange}
             onToggleCollapse={handleExplorerToggleCollapse}
           />
-        )}
-        {activeView === "deploy" && isSidePanelVisible && (
-          <DeployPanel isOpen={isSidePanelVisible} />
-        )}
-        {activeView === "source-control" && isSidePanelVisible && (
-          <SourceControlPanel isOpen={isSidePanelVisible} />
-        )}
-        {activeView === "extensions" && isSidePanelVisible && (
-          <ExtensionsPanel isOpen={isSidePanelVisible} />
-        )}
-        {activeView === "settings" && isSidePanelVisible && (
-          <SettingsPanel isOpen={isSidePanelVisible} />
-        )}
-        <EditorWorkspace
-          openFiles={openFiles}
-          activeFilePath={activeFilePath}
-          onCloseTab={handleCloseFile}
-          onSwitchTab={handleSwitchTab}
-          onFileContentChange={handleFileContentChange}
-          isAutocompletionEnabled={isAutocompletionEnabled}
-        />
-        <ChatPanel isOpen={isChatPanelOpen} onClose={toggleChatPanel} />
+        );
+      case "deploy":
+        const activeFile = openFiles.find((f) => f.path === activeFilePath);
+        return (
+          <DeployPanel
+            {...panelProps}
+            activeFile={activeFile}
+            projectFiles={explorerProjectFiles}
+          />
+        );
+      case "source-control":
+        return <SourceControlPanel {...panelProps} />;
+      case "extensions":
+        return <ExtensionsPanel {...panelProps} />;
+      case "settings":
+        return <SettingsPanel {...panelProps} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-code">
+      <TitleBar
+        onToggleChatPanel={toggleChatPanel}
+        onToggleAutocompletionPanel={toggleAutocompletion}
+        isAutocompletionEnabled={isAutocompletionEnabled}
+      />
+      <div className="flex flex-1 overflow-hidden">
+        <PanelGroup direction="horizontal" className="flex-1">
+          <Panel
+            defaultSize={isSidePanelVisible ? 20 : 0}
+            minSize={15}
+            collapsible
+            collapsedSize={0}
+            onCollapse={(collapsed) => {
+              if (collapsed) {
+                setIsSidePanelVisible(false);
+              }
+            }}
+            onExpand={() => setIsSidePanelVisible(true)}
+            className={!isSidePanelVisible ? "hidden" : "flex"}
+          >
+            <div className="flex h-full min-w-0">
+              <ActivityBar
+                activeViewId={activeView}
+                onViewChange={handleViewChange}
+                isSidePanelOpen={isSidePanelVisible}
+              />
+              <div className="flex-1 w-full min-w-0">{renderSidePanel()}</div>
+            </div>
+          </Panel>
+
+          <PanelResizeHandle className="w-1 bg-transparent hover:bg-primary/20 transition-colors duration-200 data-[resize-handle-state=drag]:bg-primary/40" />
+
+          <Panel
+            defaultSize={
+              isSidePanelVisible
+                ? isChatPanelOpen
+                  ? 55
+                  : 80
+                : isChatPanelOpen
+                ? 75
+                : 100
+            }
+            minSize={30}
+          >
+            <EditorWorkspace
+              openFiles={openFiles}
+              activeFilePath={activeFilePath}
+              onCloseTab={handleCloseFile}
+              onSwitchTab={handleSwitchTab}
+              onFileContentChange={handleFileContentChange}
+              isAutocompletionEnabled={isAutocompletionEnabled}
+            />
+          </Panel>
+
+          {isChatPanelOpen && (
+            <>
+              <PanelResizeHandle className="w-1 bg-transparent hover:bg-primary/20 transition-colors duration-200 data-[resize-handle-state=drag]:bg-primary/40" />
+              <Panel
+                defaultSize={25}
+                minSize={20}
+                collapsible
+                collapsedSize={0}
+                onCollapse={toggleChatPanel}
+                className="min-w-0"
+              >
+                <ChatPanel isOpen={isChatPanelOpen} onClose={toggleChatPanel} />
+              </Panel>
+            </>
+          )}
+        </PanelGroup>
       </div>
     </div>
   );

@@ -1,83 +1,183 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import fs from "fs/promises";
+import path from "path";
 
-// Helper function to create a standardized error response
-const createErrorResponse = (message: string, status: number) => {
-  console.error(`Error: ${message}`);
-  return NextResponse.json({ error: message }, { status });
-};
-
-// Main handler for the POST request
-export async function POST(req: NextRequest) {
-  console.log("--- /api/dockerfile: Request received ---");
-
+// Function to recursively get all file paths in a directory, ignoring common large/irrelevant directories
+async function getFilePaths(dir: string, rootDir: string): Promise<string[]> {
   try {
-    const { fileContents, language } = await req.json();
-    const selectedModel = "qwen/qwen-2.5-72b-instruct:free"; // Hardcode the model as requested
+    const dirents = await fs.readdir(dir, { withFileTypes: true });
+    const files = await Promise.all(
+      dirents.map(async (dirent) => {
+        const res = path.resolve(dir, dirent.name);
+        const relativePath = path.relative(rootDir, res);
 
-    console.log(
-      `Received - Language: ${language}, Model: ${selectedModel}, Content Length: ${fileContents?.length}`
+        // Ignore node_modules, .git, .next, and other irrelevant paths
+        if (
+          [
+            "node_modules",
+            ".git",
+            ".next",
+            "public",
+            "out",
+            ".env",
+            ".env.local",
+            ".env.production",
+            ".env.development",
+          ].includes(dirent.name)
+        ) {
+          return [];
+        }
+
+        if (dirent.isDirectory()) {
+          return getFilePaths(res, rootDir);
+        } else {
+          // We only want to return the relative path
+          return [relativePath];
+        }
+      })
+    );
+    // Flatten the array of arrays
+    return files.flat();
+  } catch (error) {
+    console.error(`Error reading directory ${dir}:`, error);
+    return [];
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    console.log("Dockerfile generation request received.");
+    const { model: modelFromRequest } = await req.json(); // Get model from request
+
+    const projectRoot = process.cwd();
+    const allRelativeFiles = await getFilePaths(projectRoot, projectRoot);
+
+    // Prioritize key configuration files
+    const keyFiles = [
+      "package.json",
+      "package-lock.json",
+      "yarn.lock",
+      "pnpm-lock.yaml",
+      "tsconfig.json",
+      "next.config.ts",
+      "next.config.mjs",
+      "postcss.config.mjs",
+      "tailwind.config.ts",
+      // Remove .env files from this list
+      "middleware.ts",
+      "middleware.js",
+    ];
+
+    // Filter for files that actually exist and add some source code files for context
+    const existingKeyFiles = (
+      await Promise.all(
+        keyFiles.map(async (f) => {
+          try {
+            await fs.access(path.join(projectRoot, f));
+            return f;
+          } catch {
+            return null;
+          }
+        })
+      )
+    ).filter((f) => f !== null) as string[];
+
+    const otherSourceFiles = allRelativeFiles
+      .filter((f) => f.startsWith("src/") && !existingKeyFiles.includes(f))
+      .slice(0, 10); // Limit to 10 other source files for brevity
+
+    const filesToRead = [
+      ...new Set([...existingKeyFiles, ...otherSourceFiles]),
+    ];
+
+    const systemPrompt = `
+Based on the provided project files, generate a complete, production-ready, multi-stage Dockerfile for this Next.js application.
+
+The Dockerfile should:
+1.  Use a specific Node.js version (e.g., node:20-alpine).
+2.  Include separate stages for dependency installation, building the application, and the final production runtime.
+3.  Copy over only the necessary files at each stage (e.g., package.json, lock files, source code, build output).
+4.  Handle Next.js-specifics like the standalone output mode if applicable (check next.config.js/mjs).
+5.  Expose the correct port (usually 3000).
+6.  Run the application as a non-root user for security.
+7.  Set appropriate environment variables, like NODE_ENV=production.
+8.  Include a CMD to start the server.
+
+Do not include any explanations, comments, or markdown formatting in the output. Provide only the raw Dockerfile content.
+`;
+
+    let fileContext = "Here is the project context:\n\n";
+    fileContext +=
+      "File structure overview:\n" +
+      allRelativeFiles.slice(0, 50).join("\n") +
+      "\n\n"; // Show a snapshot of the file tree
+
+    for (const relativePath of filesToRead) {
+      try {
+        const fullPath = path.join(projectRoot, relativePath);
+        const content = await fs.readFile(fullPath, "utf-8");
+        fileContext += `--- FILE: ${relativePath} ---\n${content.slice(
+          0,
+          2000
+        )}\n\n`; // Limit content length
+      } catch (readError) {
+        console.warn(`Could not read file ${relativePath}:`, readError);
+      }
+    }
+
+    const model = modelFromRequest || "qwen/qwen-2.5-coder-32b-instruct:free"; // Use model from request or default
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+
+    if (!openRouterApiKey) {
+      console.error("OPENROUTER_API_KEY is not set");
+      return NextResponse.json(
+        { error: "Server configuration error: Missing API key." },
+        { status: 500 }
+      );
+    }
+
+    const fullPrompt = `${systemPrompt}\n\n${fileContext}`;
+
+    console.log(`Sending request to model ${model}...`);
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${openRouterApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: "user", content: fullPrompt }],
+          max_tokens: 2048,
+        }),
+      }
     );
 
-    if (!fileContents || !language) {
-      return createErrorResponse(
-        "File contents and language are required.",
-        400
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error from OpenRouter:", response.status, errorText);
+      return NextResponse.json(
+        { error: `Failed to generate Dockerfile. Status: ${response.status}` },
+        { status: response.status }
       );
     }
 
-    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-    if (!openrouterApiKey) {
-      return createErrorResponse(
-        "Server configuration error: Missing OpenRouter API key.",
-        500
-      );
-    }
+    const data = await response.json();
+    const dockerfileContent = data.choices[0].message.content;
 
-    const openai = new OpenAI({
-      baseURL: "https://openrouter.ai/api/v1",
-      apiKey: openrouterApiKey,
-    });
-
-    const prompt = `
-      Based on the following ${language} file, generate a complete and production-ready Dockerfile.
-      The Dockerfile should be optimized for security, and performance.
-      It should handle dependencies, build the application (if necessary), and set up the correct environment to run the code.
-      Do not include any explanations, comments, or markdown formatting (e.g., \`\`\`dockerfile).
-      Only return the raw Dockerfile content.
-
-      File Content:
-      ---
-      ${fileContents}
-      ---
-    `;
-
-    console.log(`Requesting Dockerfile from model: ${selectedModel}`);
-
-    const response = await openai.chat.completions.create({
-      model: selectedModel,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.1,
-      max_tokens: 1024,
-    });
-
-    const dockerfile = response.choices[0]?.message?.content?.trim() ?? "";
-
-    if (!dockerfile) {
-      return createErrorResponse(
-        "Failed to generate Dockerfile from the model.",
-        500
-      );
-    }
-
-    console.log("Dockerfile generated successfully.");
-
+    console.log("Successfully generated Dockerfile.");
+    // Return both the generated Dockerfile and the context/prompt sent to the language model
     return NextResponse.json({
-      dockerfile,
-      prompt, // Return the prompt for context/debugging on the client
+      dockerfile: dockerfileContent,
+      prompt: fullPrompt,
     });
   } catch (error) {
-    console.error("Error in /api/dockerfile:", error);
-    return createErrorResponse("An internal server error occurred.", 500);
+    console.error("Error generating Dockerfile:", error);
+    return NextResponse.json(
+      { error: "An internal server error occurred." },
+      { status: 500 }
+    );
   }
 }
