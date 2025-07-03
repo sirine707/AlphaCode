@@ -1,19 +1,64 @@
-
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { X, Paperclip, Mic, AtSign, Send, ChevronDown, Folder, FileText, ChevronRight, UserCircle2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { FileItem } from './file-explorer-panel';
-import { initialFiles } from './file-explorer-panel'; // Uses the re-exported initialFilesData
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { explainFile } from '@/ai/flows/explain-file-flow';
-import type { ExplainFileInput } from '@/ai/schemas/explain-file-schemas';
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
+  X,
+  Paperclip,
+  Mic,
+  AtSign,
+  Send,
+  ChevronDown,
+  Folder,
+  FileText,
+  ChevronRight,
+  UserCircle2,
+} from "lucide-react";
+import { detectLanguage } from "@/lib/language-detection";
+import { cn } from "@/lib/utils";
+import type { FileItem } from "./file-explorer-panel";
+import { initialFiles } from "./file-explorer-panel"; // Uses the re-exported initialFilesData
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+const models = [
+  {
+    id: "qwen/qwen-2.5-coder-32b-instruct:free",
+    name: "Qwen 2.5 Coder (Free)",
+  },
+  {
+    id: "mistralai/mistral-7b-instruct:free",
+    name: "Mistral 7B Instruct (Free)",
+  },
+  {
+    id: "nousresearch/nous-hermes-2-mixtral-8x7b-dpo:free",
+    name: "Nous Hermes 2 Mixtral (Free)",
+  },
+  { id: "google/gemma-7b-it:free", name: "Google Gemma 7B (Free)" },
+  {
+    id: "meta-llama/llama-3-8b-instruct:free",
+    name: "Meta Llama 3 8B Instruct (Free)",
+  },
+];
+
+const rootFileItem: FileItem = {
+  name: "Project Files",
+  type: "folder",
+  path: "/",
+  children: initialFiles, // initialFiles is the array
+};
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -31,12 +76,13 @@ interface ContextFileTreeItemProps {
 interface ChatMessage {
   id: string;
   text: string;
-  sender: 'user' | 'bot';
+  sender: "user" | "bot";
   isLoading?: boolean;
   contextPath?: string | null;
   contextName?: string | null;
-  contextType?: 'file' | 'folder' | null;
+  contextType?: "file" | "folder" | null;
   timestamp: Date;
+  explanation?: string; // Add this field to store the explanation
 }
 
 const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
@@ -47,11 +93,11 @@ const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
   expandedPaths,
 }) => {
   const isExpanded = expandedPaths.has(item.path);
-  const Icon = item.type === 'folder' ? Folder : FileText;
+  const Icon = item.type === "folder" ? Folder : FileText;
 
   const handleChevronClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (item.type === 'folder') {
+    if (item.type === "folder") {
       onToggleExpand(item.path);
     }
   };
@@ -66,14 +112,16 @@ const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
         className="flex items-center rounded-md px-1.5 py-1 hover:bg-primary/10"
         style={{ paddingLeft: `${level * 0.75}rem` }}
         role="treeitem"
-        aria-expanded={item.type === 'folder' ? isExpanded : undefined}
+        aria-expanded={item.type === "folder" ? isExpanded : undefined}
         aria-label={item.name}
       >
-        {item.type === 'folder' ? (
+        {item.type === "folder" ? (
           <button
             onClick={handleChevronClick}
             className="shrink-0 p-0.5 text-muted-foreground hover:text-foreground focus:outline-none rounded-sm"
-            aria-label={isExpanded ? `Collapse ${item.name}` : `Expand ${item.name}`}
+            aria-label={
+              isExpanded ? `Collapse ${item.name}` : `Expand ${item.name}`
+            }
           >
             {isExpanded ? (
               <ChevronDown className="h-3.5 w-3.5" />
@@ -90,10 +138,17 @@ const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
           onClick={handleItemSelect}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleItemSelect()}
+          onKeyDown={(e) =>
+            (e.key === "Enter" || e.key === " ") && handleItemSelect()
+          }
           aria-label={`Select ${item.name} as context`}
         >
-          <Icon className={cn("h-3.5 w-3.5 shrink-0", item.type === 'folder' ? 'text-accent' : 'text-muted-foreground')} />
+          <Icon
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              item.type === "folder" ? "text-accent" : "text-muted-foreground"
+            )}
+          />
           <span>{item.name}</span>
         </div>
       </div>
@@ -115,18 +170,177 @@ const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
   );
 };
 
-
 const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
-  const [inputValue, setInputValue] = useState('');
-  const [selectedModel, setSelectedModel] = useState('Claude Sonnet 3.7');
+  const [inputValue, setInputValue] = useState("");
+  const [selectedModel, setSelectedModel] = useState(models[0].id);
   const [isContextPopoverOpen, setIsContextPopoverOpen] = useState(false);
-  const [expandedContextPaths, setExpandedContextPaths] = useState<Set<string>>(new Set(['/']));
-  const [selectedContextItem, setSelectedContextItem] = useState<FileItem | null>(null);
+  const [expandedContextPaths, setExpandedContextPaths] = useState<Set<string>>(
+    new Set(["/"])
+  );
+  const [selectedContextItem, setSelectedContextItem] =
+    useState<FileItem | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [isContextSelectorOpen, setIsContextSelectorOpen] = useState(false);
+  const [selectedContext, setSelectedContext] = useState<FileItem | null>(null);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
+    new Set(["/"])
+  );
+  const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const handleToggleContextExpand = (path: string) => {
-    setExpandedContextPaths(prev => {
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() && !selectedContext) return;
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: input,
+      sender: "user",
+      contextPath: selectedContext?.path,
+      contextName: selectedContext?.name,
+      contextType: selectedContext?.type,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+
+    // If there's a file context, call the explain API route
+    if (selectedContext && selectedContext.type === "file") {
+      setIsLoading(true);
+      const botLoadingMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: "",
+        sender: "bot",
+        isLoading: true,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, botLoadingMessage]);
+
+      try {
+        const response = await fetch("/api/explain", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            filePath: selectedContext.path,
+            model: selectedModel,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        const botMessage: ChatMessage = {
+          id: (Date.now() + 2).toString(),
+          text: result.explanation,
+          sender: "bot",
+          timestamp: new Date(),
+        };
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === botLoadingMessage.id ? botMessage : msg
+          )
+        );
+      } catch (error) {
+        console.error("Failed to explain file:", error);
+        const errorMessage: ChatMessage = {
+          id: (Date.now() + 2).toString(),
+          text: "Sorry, I couldn't explain that file. Please try again.",
+          sender: "bot",
+          timestamp: new Date(),
+        };
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === botLoadingMessage.id ? errorMessage : msg
+          )
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    setInput("");
+    setSelectedContext(null);
+    setIsContextSelectorOpen(false);
+  };
+
+  // Function to handle the explanation when the button is clicked
+  const handleExplainFile = async (file: FileItem) => {
+    if (file.type !== "file") return;
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: `Explain the file: ${file.name}`,
+      sender: "user",
+      contextPath: file.path,
+      contextName: file.name,
+      contextType: "file",
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+
+    const botLoadingMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      text: "",
+      sender: "bot",
+      isLoading: true,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, botLoadingMessage]);
+
+    try {
+      const response = await fetch("/api/explain", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ filePath: file.path, model: selectedModel }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      const botMessage: ChatMessage = {
+        id: (Date.now() + 2).toString(),
+        text: result.explanation,
+        sender: "bot",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === botLoadingMessage.id ? botMessage : msg))
+      );
+    } catch (error) {
+      console.error("Failed to explain file:", error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 2).toString(),
+        text: "Sorry, I couldn't explain that file. Please try again.",
+        sender: "bot",
+        timestamp: new Date(),
+      };
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botLoadingMessage.id ? errorMessage : msg
+        )
+      );
+    } finally {
+      setIsLoading(false);
+      setIsContextSelectorOpen(false); // Close the selector after explaining
+    }
+  };
+
+  const handleToggleExpand = (path: string) => {
+    setExpandedPaths((prev) => {
       const newPaths = new Set(prev);
       if (newPaths.has(path)) {
         newPaths.delete(path);
@@ -142,267 +356,187 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
     setIsContextPopoverOpen(false);
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      text: inputValue,
-      sender: 'user',
-      contextPath: selectedContextItem?.path,
-      contextName: selectedContextItem?.name,
-      contextType: selectedContextItem?.type,
-      timestamp: new Date(),
-    };
-
-    const botLoadingMessage: ChatMessage = {
-      id: 'bot-loading-' + Date.now(),
-      text: '...', 
-      sender: 'bot',
-      isLoading: true,
-      timestamp: new Date(),
-    };
-    
-    setMessages(prevMessages => [...prevMessages, userMessage, botLoadingMessage]);
-    
-    const currentInputValue = inputValue;
-    const currentSelectedContextItem = selectedContextItem;
-    
-    setInputValue('');
-    setSelectedContextItem(null);
-
-    let botReplyText: string;
-
-    const lowerCaseText = currentInputValue.toLowerCase();
-    const isExplanationRequest = lowerCaseText.includes('explain') && currentSelectedContextItem?.type === 'file' && currentSelectedContextItem.content;
-
-    if (isExplanationRequest) {
-      try {
-        const input: ExplainFileInput = {
-          filePath: currentSelectedContextItem.path,
-          fileContent: currentSelectedContextItem.content || '',
-        };
-        botReplyText = await explainFile(input);
-      } catch (error) {
-        console.error("Error explaining file:", error);
-        botReplyText = "Sorry, I had trouble explaining that file. Please try again.";
-      }
-    } else {
-      // Simulate bot response for other cases
-      await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
-      botReplyText = `Simulated reply to: "${userMessage.text}"`;
-      const fileModificationKeywords = ['modify', 'change', 'update', 'edit', 'write to', 'add to'];
-      const knownFilePatterns = [/\b\w+\.py\b/g, /\b\w+\.js\b/g, /\b\w+\.json\b/g, /\b\w+\.md\b/g, /\b\w+\.txt\b/g, /\b\w+\.tsx\b/g, /\b\w+\.css\b/g];
-      
-      let detectedFile: string | null = null;
-      for (const pattern of knownFilePatterns) {
-        const match = userMessage.text.match(pattern); 
-        if (match && match.length > 0) {
-          detectedFile = match[0];
-          break;
-        }
-      }
-      
-      const isModificationRequest = fileModificationKeywords.some(keyword => lowerCaseText.includes(keyword)) && detectedFile;
-
-      if (isModificationRequest) {
-        botReplyText = `Understood. I will ask the file modification agent to process your request for \`${detectedFile}\`.`;
-      }
-    }
-
-    setMessages(prevMessages => {
-      const messagesWithoutLoading = prevMessages.filter(msg => !msg.isLoading);
-      const botReply: ChatMessage = {
-        id: Date.now().toString() + '-bot',
-        text: botReplyText,
-        sender: 'bot',
-        timestamp: new Date(),
-      };
-      return [...messagesWithoutLoading, botReply];
-    });
-  };
-
   useEffect(() => {
     if (scrollAreaRef.current) {
-      const scrollViewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      const scrollViewport = scrollAreaRef.current.querySelector(
+        "[data-radix-scroll-area-viewport]"
+      );
       if (scrollViewport) {
         scrollViewport.scrollTop = scrollViewport.scrollHeight;
       }
     }
   }, [messages]);
 
-
   if (!isOpen) {
     return null;
   }
 
+  const selectedModelName =
+    models.find((m) => m.id === selectedModel)?.name || "Select Model";
+
   return (
     <div
       className={cn(
-        "fixed top-0 right-0 h-full bg-card shadow-xl transition-transform duration-300 ease-in-out flex flex-col border-l border-border z-50",
-        isOpen ? "translate-x-0 w-[380px]" : "translate-x-full w-[380px]"
+        "flex h-full flex-col bg-background",
+        isOpen ? "w-full md:w-[440px]" : "w-0"
       )}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border">
-        <h2 className="text-sm font-semibold uppercase text-muted-foreground">CHAT</h2>
-        <div className="flex items-center space-x-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+      <div className="flex items-center justify-between border-b p-2">
+        <div className="flex items-center space-x-2">
+          <UserCircle2 className="h-5 w-5" />
+          <h2 className="text-sm font-medium">AI Assistant</h2>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="h-7 w-7"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close chat</span>
+        </Button>
       </div>
-
-      {/* Message Area */}
-      <ScrollArea className="flex-1 p-3" ref={scrollAreaRef}>
-        {messages.length === 0 ? (
-          <div className="text-xs text-muted-foreground text-center py-10">
-            Ask Copilot anything...
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((msg) => (
-              <div key={msg.id} className={cn(
-                "flex",
-                (msg.sender === 'bot' && msg.isLoading) ? "justify-start" : 
-                (msg.sender === 'user' ? "justify-start" : "justify-end")   
-              )}>
-                <div className={cn(
-                  "flex items-start space-x-2 max-w-[85%]",
-                  (msg.sender === 'bot' && !msg.isLoading) && "flex-row-reverse space-x-reverse" 
-                )}>
-                  <Avatar className="h-6 w-6 shrink-0">
-                    {msg.sender === 'user' ? (
-                      <UserCircle2 className="h-full w-full text-primary" />
+      <ScrollArea className="flex-1" ref={scrollAreaRef}>
+        <div className="space-y-6 p-4">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={cn(
+                "flex items-start gap-3",
+                message.sender === "user" ? "justify-end" : ""
+              )}
+            >
+              {message.sender === "bot" && (
+                <Avatar className="h-8 w-8 border">
+                  <AvatarImage src="/bot-avatar.png" alt="AI Avatar" />
+                  <AvatarFallback>AI</AvatarFallback>
+                </Avatar>
+              )}
+              <div
+                className={cn(
+                  "max-w-xs rounded-lg px-3 py-2 text-sm md:max-w-md",
+                  message.sender === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted",
+                  message.isLoading && "animate-pulse"
+                )}
+              >
+                {message.contextName && (
+                  <div className="mb-2 flex items-center gap-1.5 rounded-md border bg-background/50 p-1.5 text-xs">
+                    {message.contextType === "file" ? (
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     ) : (
-                      <AvatarImage src="https://placehold.co/32x32.png" alt="Bot Avatar" data-ai-hint="bot avatar" />
+                      <Folder className="h-3.5 w-3.5 shrink-0 text-accent" />
                     )}
-                    <AvatarFallback>{msg.sender === 'user' ? 'U' : 'B'}</AvatarFallback>
-                  </Avatar>
-                  <div className={cn(
-                    "rounded-lg px-3 py-2 text-xs shadow-sm",
-                    (msg.sender === 'bot' && msg.isLoading) ? "bg-muted text-foreground" :
-                    (msg.sender === 'user' ? "bg-primary/20 text-foreground" : "bg-muted text-foreground")
-                  )}>
-                    {msg.isLoading && msg.sender === 'bot' ? (
-                      <div className="flex items-center space-x-1 py-1"> 
-                        <span className="h-1.5 w-1.5 bg-foreground/70 rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></span>
-                        <span className="h-1.5 w-1.5 bg-foreground/70 rounded-full animate-pulse" style={{ animationDelay: '200ms' }}></span>
-                        <span className="h-1.5 w-1.5 bg-foreground/70 rounded-full animate-pulse" style={{ animationDelay: '400ms' }}></span>
-                      </div>
-                    ) : (
-                      <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                    )}
-                    
-                    {!msg.isLoading && msg.contextName && (
-                      <div className="mt-1.5 pt-1.5 border-t border-border/50 text-muted-foreground text-[0.65rem] leading-tight">
-                        Context: <span className="font-medium text-foreground/80">{msg.contextName}</span> ({msg.contextType})
-                      </div>
-                    )}
-                    {!msg.isLoading && (
-                       <p className={cn(
-                          "mt-1 text-[0.6rem] text-muted-foreground/70",
-                          (msg.sender === 'bot' && !msg.isLoading) ? 'text-left' : 'text-right' 
-                       )}>
-                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    )}
+                    <span className="truncate font-mono">
+                      {message.contextName}
+                    </span>
                   </div>
+                )}
+                <p className="whitespace-pre-wrap">{message.text}</p>
+                <div className="mt-1.5 text-right text-xs text-muted-foreground/80">
+                  {new Date(message.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </div>
               </div>
-            ))}
+              {message.sender === "user" && (
+                <Avatar className="h-8 w-8 border">
+                  <AvatarImage src="/user-avatar.png" alt="User Avatar" />
+                  <AvatarFallback>U</AvatarFallback>
+                </Avatar>
+              )}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+      <div className="border-t p-2">
+        {selectedContextItem && (
+          <div className="mb-2 flex items-center justify-between rounded-md border bg-muted p-1.5 pl-2.5 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium">Context:</span>
+              <div className="flex items-center gap-1.5">
+                {selectedContextItem.type === "file" ? (
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Folder className="h-4 w-4 text-accent" />
+                )}
+                <span className="truncate font-mono text-xs">
+                  {selectedContextItem.name}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => setSelectedContextItem(null)}
+            >
+              <X className="h-3.5 w-3.5" />
+              <span className="sr-only">Remove context</span>
+            </Button>
           </div>
         )}
-      </ScrollArea>
-
-      {/* Input Area */}
-      <div className="p-3 border-t border-border space-y-2">
-        <div className="flex items-center space-x-2">
-          <Popover open={isContextPopoverOpen} onOpenChange={setIsContextPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                <Paperclip className="h-4 w-4" />
-                <span className="sr-only">Add Context</span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0" align="start">
-              <div className="p-2 border-b border-border">
-                <h3 className="text-xs font-medium text-foreground">Attach Files or Folders</h3>
-              </div>
-              <ScrollArea className="h-[250px] p-2">
-                {initialFiles.map((item) => (
+        <div className="relative">
+          <Input
+            placeholder="Ask a question or type '/' for commands..."
+            className="pr-24"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+            <Popover
+              open={isContextPopoverOpen}
+              onOpenChange={setIsContextPopoverOpen}
+            >
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <Paperclip className="h-4 w-4" />
+                  <span className="sr-only">Attach context</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-1" align="end">
+                <ScrollArea className="h-[20rem]">
                   <ContextFileTreeItem
-                    key={item.path}
-                    item={item}
-                    onToggleExpand={handleToggleContextExpand}
+                    item={rootFileItem}
+                    onToggleExpand={handleToggleExpand}
                     onSelectItem={handleSelectContextItem}
                     expandedPaths={expandedContextPaths}
                   />
-                ))}
-              </ScrollArea>
-            </PopoverContent>
-          </Popover>
-          <Input
-            type="text"
-            placeholder="Ask Copilot"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-            className="flex-1 text-xs h-8 bg-background/50 border-border/70 focus:border-primary"
-          />
-        </div>
-
-        {selectedContextItem && (
-          <div className="flex items-center justify-between rounded-md bg-background/50 p-1.5 text-xs text-muted-foreground shadow-sm border border-border/50 max-w-xs">
-            <div className="flex items-center space-x-1.5 overflow-hidden">
-              {selectedContextItem.type === 'folder' ? <Folder className="h-3.5 w-3.5 text-accent shrink-0" /> : <FileText className="h-3.5 w-3.5 shrink-0" />}
-              <span className="truncate">
-                Context: <span className="font-medium text-foreground">{selectedContextItem.name}</span> ({selectedContextItem.type})
-              </span>
-            </div>
-            <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-foreground shrink-0" onClick={() => setSelectedContextItem(null)}>
-              <X className="h-3 w-3" />
-              <span className="sr-only">Clear context</span>
-            </Button>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+            <Button variant="ghost" size="icon" className="h-7 w-7">
               <Mic className="h-4 w-4" />
-              <span className="sr-only">Use Microphone</span>
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-              <AtSign className="h-4 w-4" />
-              <span className="sr-only">Mention</span>
+              <span className="sr-only">Use microphone</span>
             </Button>
           </div>
-          <div className="flex items-center space-x-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="text-xs h-7 px-2.5 border-border/70">
-                  {selectedModel}
-                  <ChevronDown className="h-3 w-3 ml-1.5 opacity-70" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[180px]">
-                <DropdownMenuItem onSelect={() => setSelectedModel('Claude Sonnet 3.7')} className="text-xs">
-                  Claude Sonnet 3.7
+        </div>
+        <div className="mt-2 flex items-center justify-between">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-8 text-xs">
+                {selectedModelName}
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {models.map((model) => (
+                <DropdownMenuItem
+                  key={model.id}
+                  onSelect={() => setSelectedModel(model.id)}
+                >
+                  {model.name}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSelectedModel('GPT-4 Turbo')} className="text-xs">
-                  GPT-4 Turbo
-                </DropdownMenuItem>
-                 <DropdownMenuItem onSelect={() => setSelectedModel('Gemini Pro')} className="text-xs">
-                  Gemini Pro
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button size="icon" className="h-8 w-8 bg-primary hover:bg-primary/90" onClick={handleSendMessage} disabled={!inputValue.trim()}>
-              <Send className="h-4 w-4" />
-              <span className="sr-only">Send Message</span>
-            </Button>
-          </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={handleSendMessage} className="h-8">
+            Send
+            <Send className="ml-2 h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>
@@ -410,4 +544,3 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
 };
 
 export default ChatPanel;
-    
