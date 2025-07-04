@@ -60,10 +60,7 @@ const rootFileItem: FileItem = {
   children: initialFiles, // initialFiles is the array
 };
 
-interface ChatPanelProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+interface ChatPanelProps {}
 
 interface ContextFileTreeItemProps {
   item: FileItem;
@@ -170,7 +167,7 @@ const ContextFileTreeItem: React.FC<ContextFileTreeItemProps> = ({
   );
 };
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
+const ChatPanel: React.FC<ChatPanelProps> = () => {
   const [inputValue, setInputValue] = useState("");
   const [selectedModel, setSelectedModel] = useState(models[0].id);
   const [isContextPopoverOpen, setIsContextPopoverOpen] = useState(false);
@@ -189,8 +186,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!input.trim() && !selectedContext) return;
 
     const userMessage: ChatMessage = {
@@ -367,34 +364,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
     }
   }, [messages]);
 
-  if (!isOpen) {
-    return null;
-  }
-
   const selectedModelName =
     models.find((m) => m.id === selectedModel)?.name || "Select Model";
 
   return (
     <div
       className={cn(
-        "flex h-full flex-col bg-background",
-        isOpen ? "w-full md:w-[440px]" : "w-0"
+        "flex h-full flex-col bg-card", // Changed from bg-background
+        "w-full md:w-[440px]"
       )}
     >
       <div className="flex items-center justify-between border-b p-2">
         <div className="flex items-center space-x-2">
-          <UserCircle2 className="h-5 w-5" />
-          <h2 className="text-sm font-medium">AI Assistant</h2>
+          <h2 className="text-lg font-semibold">Chat</h2>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="h-7 w-7"
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close chat</span>
-        </Button>
       </div>
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="space-y-6 p-4">
@@ -417,7 +400,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
                   "max-w-xs rounded-lg px-3 py-2 text-sm md:max-w-md",
                   message.sender === "user"
                     ? "bg-primary text-primary-foreground"
-                    : "bg-muted",
+                    : "bg-card text-card-foreground", // Changed from bg-muted
                   message.isLoading && "animate-pulse"
                 )}
               >
@@ -484,7 +467,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
             className="pr-24"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
           />
           <div className="absolute inset-y-0 right-0 flex items-center pr-2">
             <Popover
@@ -533,7 +521,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ isOpen, onClose }) => {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={handleSendMessage} className="h-8">
+          <Button onClick={() => handleSendMessage()} className="h-8">
             Send
             <Send className="ml-2 h-4 w-4" />
           </Button>

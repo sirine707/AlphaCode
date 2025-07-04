@@ -13,7 +13,7 @@ interface EditorWorkspaceProps {
   onCloseTab: (filePath: string) => void;
   onSwitchTab: (filePath: string) => void;
   onFileContentChange: (filePath: string, newContent: string) => void;
-  isAutocompletionEnabled: boolean; // Corrected prop name based on code-canvas-layout
+  isAutocompletionEnabled: boolean;
 }
 
 const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
@@ -22,7 +22,7 @@ const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   onCloseTab,
   onSwitchTab,
   onFileContentChange,
-  isAutocompletionEnabled, // Use the correct prop name
+  isAutocompletionEnabled,
 }) => {
   const activeFile = openFiles.find((f) => f.path === activeFilePath) || null;
   const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null);
@@ -37,8 +37,13 @@ const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
     }
   }, [activeFile]);
 
+  const handleRunFile = () => {
+    // TODO: Implement logic to run the file
+    console.log("Running file:", activeFile?.path);
+  };
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden relative">
+    <div className="flex flex-1 flex-col overflow-hidden relative bg-background">
       {activeFile ? (
         <div className="flex-grow flex flex-col h-full">
           <FileTabsBar
@@ -46,6 +51,7 @@ const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
             activeFilePath={activeFilePath}
             onTabClick={onSwitchTab}
             onCloseTab={onCloseTab}
+            onRunClick={handleRunFile}
           />
           <CodeEditorArea
             filePath={activeFile.path}
@@ -58,8 +64,8 @@ const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
           />
         </div>
       ) : (
-        <div className="flex-grow flex items-center justify-center bg-gray-800 text-gray-500">
-          <div className="text-6xl font-bold text-blue-900 opacity-20 select-none">
+        <div className="flex h-full w-full flex-1 items-center justify-center bg-background">
+          <div className="select-none text-9xl font-bold text-muted-foreground opacity-20">
             ALPHA
           </div>
         </div>
