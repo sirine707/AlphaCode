@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import ActivityBar from "./activity-bar";
 import FileExplorerPanel, {
@@ -49,7 +49,7 @@ const CodeCanvasLayout: React.FC = () => {
     useState<FileItem[]>(initialFilesData);
   const [explorerExpandedPaths, setExplorerExpandedPaths] = useState<
     Set<string>
-  >(new Set(initialFilesData[0]?.path ? [initialFilesData[0].path] : ["/"]));
+  >(new Set(["/", "/src"])); // Expand root and src folders by default
 
   const handleViewChange = useCallback(
     (viewId: ActiveView | ActiveRightView) => {
@@ -74,6 +74,14 @@ const CodeCanvasLayout: React.FC = () => {
   );
 
   const handleDeployClick = useCallback(() => {
+    // First check if we should toggle the panel closed
+    if (activeRightView === "deploy" && isRightPanelVisible) {
+      setIsRightPanelVisible(false);
+      setActiveRightView(null);
+      return;
+    }
+
+    // If panel is not open or different panel is open, proceed with deploy logic
     const root = explorerProjectFiles[0];
     let dockerfileExists = false;
     if (root && root.type === "folder" && root.children) {
@@ -103,10 +111,9 @@ const CodeCanvasLayout: React.FC = () => {
       setExplorerProjectFiles(newProjectFiles);
     }
 
-    if (activeRightView !== "deploy" || !isRightPanelVisible) {
-      setActiveRightView("deploy");
-      setIsRightPanelVisible(true);
-    }
+    // Open the deploy panel
+    setActiveRightView("deploy");
+    setIsRightPanelVisible(true);
     setDockerfileGenerationTrigger((prev) => prev + 1);
   }, [
     explorerProjectFiles,
@@ -288,8 +295,8 @@ const CodeCanvasLayout: React.FC = () => {
   }, [activeRightView, isRightPanelVisible]);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground font-code">
-      <div className="flex-0">
+    <div className="h-screen w-full bg-background text-foreground">
+      <PanelGroup direction="vertical">
         <Panel id="title-bar-panel" defaultSize={5} minSize={5} maxSize={5}>
           <TitleBar
             onToggleChatPanel={toggleChatPanel}
@@ -301,59 +308,61 @@ const CodeCanvasLayout: React.FC = () => {
             }
           />
         </Panel>
-      </div>
-      <div className="flex flex-1 overflow-hidden">
-        <ActivityBar
-          activeViewId={activeView}
-          onViewChange={handleViewChange}
-          isSidePanelOpen={isSidePanelVisible}
-          activeRightViewId={activeRightView}
-        />
-        <PanelGroup direction="horizontal" className="flex-1">
-          {isSidePanelVisible && (
-            <Panel
-              defaultSize={20}
-              minSize={15}
-              className="bg-card"
-              collapsible={false} // This will disable collapse on double click
-            >
-              {renderLeftPanel()}
-            </Panel>
-          )}
-
-          {isSidePanelVisible && (
-            <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
-          )}
-
-          <Panel>
-            <PanelGroup direction="horizontal">
-              <Panel>
-                <EditorWorkspace
-                  openFiles={openFiles}
-                  activeFilePath={activeFilePath}
-                  onCloseTab={handleCloseFile}
-                  onSwitchTab={handleSwitchTab}
-                  onFileContentChange={handleFileContentChange}
-                  isAutocompletionEnabled={isAutocompletionEnabled}
-                />
-              </Panel>
-              {isRightPanelVisible && (
-                <>
-                  <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
-                  <Panel
-                    defaultSize={rightPanelDefaultSize}
-                    minSize={20}
-                    maxSize={80}
-                    collapsible={false}
-                  >
-                    {renderRightPanel()}
-                  </Panel>
-                </>
+        <Panel defaultSize={95}>
+          <div className="flex flex-1 h-full overflow-hidden">
+            <ActivityBar
+              activeViewId={activeView}
+              onViewChange={handleViewChange}
+              isSidePanelOpen={isSidePanelVisible}
+              activeRightViewId={activeRightView}
+            />
+            <PanelGroup direction="horizontal" className="flex-1">
+              {isSidePanelVisible && (
+                <Panel
+                  defaultSize={20}
+                  minSize={15}
+                  className="bg-card"
+                  collapsible={false}
+                >
+                  {renderLeftPanel()}
+                </Panel>
               )}
+
+              {isSidePanelVisible && (
+                <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
+              )}
+
+              <Panel defaultSize={80}>
+                <PanelGroup direction="horizontal">
+                  <Panel>
+                    <EditorWorkspace
+                      openFiles={openFiles}
+                      activeFilePath={activeFilePath}
+                      onCloseTab={handleCloseFile}
+                      onSwitchTab={handleSwitchTab}
+                      onFileContentChange={handleFileContentChange}
+                      isAutocompletionEnabled={isAutocompletionEnabled}
+                    />
+                  </Panel>
+                  {isRightPanelVisible && (
+                    <>
+                      <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
+                      <Panel
+                        defaultSize={rightPanelDefaultSize}
+                        minSize={20}
+                        maxSize={80}
+                        collapsible={false}
+                      >
+                        {renderRightPanel()}
+                      </Panel>
+                    </>
+                  )}
+                </PanelGroup>
+              </Panel>
             </PanelGroup>
-          </Panel>
-        </PanelGroup>
-      </div>
+          </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 };

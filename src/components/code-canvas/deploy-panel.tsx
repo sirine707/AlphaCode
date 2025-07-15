@@ -47,11 +47,70 @@ const resourcesList = [
   { id: "storageBucket", label: "Storage Bucket" },
 ];
 
-const initialDockerfileContent = `FROM python:3.10-slim
+const initialDockerfileContent = `# Multi-stage build for Next.js application
+FROM node:22-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
 WORKDIR /app
+
+# Install Python and build dependencies for node-gyp (only in deps stage)
+RUN apk add --no-cache python3 make g++ gcc musl-dev libc6-compat
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy package files
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ gcc musl-dev libc6-compat
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pip install -r requirements.txt
-CMD ["python", "app.py"]`;
+
+# Install all dependencies (including dev) for build
+RUN npm ci
+
+# Build the application
+RUN npm run build
+
+# Production image, copy all the files and run next
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Create non-root user in final stage
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy built application
+COPY --from=builder /app/public ./public
+
+# Set permissions for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Copy build output and set ownership
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Use Next.js standalone server
+CMD ["node", "server.js"]`;
 
 const initialDeploymentYaml = `apiVersion: apps/v1
 kind: Deployment
@@ -93,17 +152,18 @@ const k8sClusters = [
   { id: "custom-kubeconfig", label: "Custom Kubeconfig" },
 ];
 
-type CollapsibleSectionName =
-  | "infrastructure"
-  | "dockerize"
-  | "dockerHub"
-  | "kubernetes";
+type CollapsibleSectionName = "infrastructure" | "dockerize" | "kubernetes";
 
 const DeployPanel: React.FC<DeployPanelProps> = ({
   activeFile,
   projectFiles,
   triggerDockerfileGeneration,
 }) => {
+  // Detect if running in hosted mode (production or explicitly set)
+  const isHostedMode =
+    typeof window !== "undefined" &&
+    (process.env.NODE_ENV === "production" ||
+      process.env.NEXT_PUBLIC_HOSTED_MODE === "true");
   const [selectedCloud, setSelectedCloud] = useState<string>("aws");
   const [selectedResources, setSelectedResources] = useState<
     Record<string, boolean>
@@ -125,6 +185,22 @@ const DeployPanel: React.FC<DeployPanelProps> = ({
   const [imageName, setImageName] = useState<string>(
     "your-username/my-app:latest"
   );
+
+  // Auto-update image name when username changes
+  useEffect(() => {
+    if (dockerHubUsername.trim()) {
+      // Extract username part if it's an email address, otherwise use as-is
+      let username = dockerHubUsername.trim();
+      if (username.includes("@")) {
+        username = username.split("@")[0];
+      }
+      // Remove any special characters that aren't allowed in Docker image names
+      username = username.replace(/[^a-zA-Z0-9._-]/g, "");
+      setImageName(`${username}/my-app:latest`);
+    } else {
+      setImageName("your-username/my-app:latest");
+    }
+  }, [dockerHubUsername]);
 
   const [selectedK8sCluster, setSelectedK8sCluster] =
     useState<string>("minikube");
@@ -148,6 +224,12 @@ const DeployPanel: React.FC<DeployPanelProps> = ({
   const [azureClientId, setAzureClientId] = useState<string>("");
   const [azureClientSecret, setAzureClientSecret] = useState<string>("");
   const [azureTenantId, setAzureTenantId] = useState<string>("");
+
+  // Terminal states for build logs
+  const [buildOutput, setBuildOutput] = useState<string>("");
+  const [isBuilding, setIsBuilding] = useState<boolean>(false);
+  const [showBuildOutput, setShowBuildOutput] = useState<boolean>(false);
+  const [isPushing, setIsPushing] = useState<boolean>(false);
   const [azureSubscriptionId, setAzureSubscriptionId] = useState<string>("");
 
   // GCP Credentials
@@ -160,7 +242,6 @@ const DeployPanel: React.FC<DeployPanelProps> = ({
   >({
     infrastructure: true,
     dockerize: false,
-    dockerHub: false,
     kubernetes: false,
   });
 
@@ -295,22 +376,194 @@ ${
     console.log("Infrastructure provisioning complete.");
   };
 
-  const handleBuildDockerImage = () => {
-    // Log simulation removed
-    console.log("Starting Docker image build...");
-    console.log(`Using Dockerfile:\n${dockerfileContent}\n`);
-    // Simulate build steps
-    console.log("Connecting to Docker daemon...");
-    console.log("Docker image build complete.");
+  const handleBuildDockerImage = async () => {
+    console.log("🔧 Starting Docker build from frontend");
+
+    // In hosted mode, Docker Hub credentials are mandatory
+    if (isHostedMode && (!dockerHubUsername || !dockerHubPassword)) {
+      setBuildOutput(
+        "❌ Docker Hub credentials are required for hosted applications\n"
+      );
+      setBuildOutput(
+        (prev) =>
+          prev +
+          "💡 Built images must be pushed to Docker Hub as they cannot be stored locally on the server\n"
+      );
+      setBuildOutput(
+        (prev) =>
+          prev + "🔐 Please provide your Docker Hub username and access token\n"
+      );
+      setShowBuildOutput(true);
+      return;
+    }
+
+    setIsBuilding(true);
+    setShowBuildOutput(true);
+    setBuildOutput("🔧 Initializing Docker build...\n");
+
+    // Always push to Docker Hub in hosted mode, optional in local mode
+    const shouldPushToDockerHub =
+      isHostedMode || !!(dockerHubUsername && dockerHubPassword);
+
+    if (shouldPushToDockerHub) {
+      setBuildOutput(
+        (prev) =>
+          prev +
+          (isHostedMode
+            ? "🐳 Hosted mode: Will build and push to Docker Hub\n"
+            : "🐳 Docker Hub credentials provided - will push after build\n")
+      );
+    }
+
+    try {
+      console.log("📡 Making fetch request to /api/docker-build");
+      console.log("📦 Payload:", {
+        imageName,
+        dockerfileContent,
+        pushToDockerHub: shouldPushToDockerHub,
+        dockerHubUsername: shouldPushToDockerHub
+          ? dockerHubUsername
+          : undefined,
+        dockerHubPassword: shouldPushToDockerHub
+          ? dockerHubPassword
+          : undefined,
+        isHostedMode,
+      });
+
+      const response = await fetch("/api/docker-build", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageName: imageName,
+          dockerfileContent: dockerfileContent,
+          pushToDockerHub: shouldPushToDockerHub,
+          dockerHubUsername: shouldPushToDockerHub
+            ? dockerHubUsername
+            : undefined,
+          dockerHubPassword: shouldPushToDockerHub
+            ? dockerHubPassword
+            : undefined,
+          isHostedMode,
+        }),
+      });
+
+      console.log(
+        "📡 Response received:",
+        response.status,
+        response.statusText
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Build failed: ${response.status} ${response.statusText}`
+        );
+      }
+
+      if (!response.body) {
+        throw new Error("No response body received");
+      }
+
+      setBuildOutput((prev) => prev + "📡 Connected to build server...\n");
+      console.log("📡 Starting to read response stream");
+
+      // Stream the response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      let chunkCount = 0;
+      while (true) {
+        console.log(`📦 Reading chunk ${chunkCount + 1}`);
+        const { done, value } = await reader.read();
+
+        if (done) {
+          console.log("✅ Stream reading completed");
+          break;
+        }
+
+        const chunk = decoder.decode(value);
+        console.log("📦 Received chunk:", chunk.length, "characters");
+        console.log(
+          "📝 Chunk content:",
+          chunk.substring(0, 100) + (chunk.length > 100 ? "..." : "")
+        );
+
+        setBuildOutput((prev) => prev + chunk);
+        chunkCount++;
+      }
+    } catch (error) {
+      console.error("❌ Docker build error:", error);
+      setBuildOutput((prev) => prev + `\n❌ Error: ${error}\n`);
+    } finally {
+      console.log("🏁 Docker build process finished");
+      setIsBuilding(false);
+    }
   };
 
-  const handlePushImage = () => {
-    // Log simulation removed
-    console.log(`Starting Docker image push for ${imageName}...`);
-    console.log(`Username: ${dockerHubUsername}`);
-    // Simulate push steps
-    console.log(`Authenticating with Docker Hub as ${dockerHubUsername}...`);
-    console.log("Image push complete.");
+  const handlePushImage = async () => {
+    if (!dockerHubUsername || !dockerHubPassword || !imageName) {
+      setBuildOutput(
+        (prev) => prev + "❌ Missing Docker Hub credentials or image name\n"
+      );
+      setShowBuildOutput(true);
+      return;
+    }
+
+    console.log(`🐳 Starting Docker image push for ${imageName}...`);
+    setIsPushing(true);
+    setShowBuildOutput(true);
+    setBuildOutput(
+      (prev) => prev + `🐳 Starting push of ${imageName} to Docker Hub...\n`
+    );
+
+    try {
+      const response = await fetch("/api/docker-build", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageName: imageName,
+          dockerfileContent: "", // No build needed, just push
+          pushToDockerHub: true,
+          dockerHubUsername: dockerHubUsername,
+          dockerHubPassword: dockerHubPassword,
+          skipBuild: true, // Add flag to skip build and just push
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Push failed: ${response.status} ${response.statusText}`
+        );
+      }
+
+      if (!response.body) {
+        throw new Error("No response body received");
+      }
+
+      // Stream the response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          console.log("✅ Push stream reading completed");
+          break;
+        }
+
+        const chunk = decoder.decode(value);
+        setBuildOutput((prev) => prev + chunk);
+      }
+    } catch (error) {
+      console.error("❌ Docker push error:", error);
+      setBuildOutput((prev) => prev + `\n❌ Push Error: ${error}\n`);
+    } finally {
+      setIsPushing(false);
+    }
   };
 
   const handleSelectK8sYaml = (type: "deployment" | "service") => {
@@ -657,7 +910,9 @@ ${
                 rows={10}
                 aria-label="Editable Dockerfile"
               />
-              <div className="flex flex-col space-y-1.5">
+
+              {/* Generate Dockerfile Button - positioned right after textarea */}
+              <div className="pt-2">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -688,92 +943,170 @@ ${
                     )}
                   </Tooltip>
                 </TooltipProvider>
+              </div>
+
+              {/* Docker Hub Credentials Section */}
+              <div className="pt-3 border-t border-border/30 space-y-3">
+                <Label className="text-xs font-semibold text-foreground">
+                  Docker Hub Registry{" "}
+                  {isHostedMode && <span className="text-red-500">*</span>}
+                </Label>
+
+                {isHostedMode && (
+                  <div className="text-xs text-amber-600 dark:text-amber-400 p-2 bg-amber-50 dark:bg-amber-950/20 rounded border border-amber-200 dark:border-amber-800">
+                    ⚠️ <strong>Hosted Mode:</strong> Docker Hub credentials are
+                    required. Built images must be pushed to Docker Hub as they
+                    cannot be stored locally on the server.
+                  </div>
+                )}
+
+                <div>
+                  <Label
+                    htmlFor="dockerHubUser"
+                    className="text-xs font-medium mb-1.5 block text-muted-foreground"
+                  >
+                    Docker Hub Username{" "}
+                    {isHostedMode && <span className="text-red-500">*</span>}
+                  </Label>
+                  <Input
+                    id="dockerHubUser"
+                    value={dockerHubUsername}
+                    onChange={(e) => setDockerHubUsername(e.target.value)}
+                    placeholder="e.g., yourusername"
+                    className="text-xs h-8"
+                    required={isHostedMode}
+                  />
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor="dockerHubPass"
+                    className="text-xs font-medium mb-1.5 block text-muted-foreground"
+                  >
+                    Docker Hub Access Token{" "}
+                    {isHostedMode && <span className="text-red-500">*</span>}
+                  </Label>
+                  <Input
+                    id="dockerHubPass"
+                    type="password"
+                    value={dockerHubPassword}
+                    onChange={(e) => setDockerHubPassword(e.target.value)}
+                    placeholder="Enter your access token (preferred) or password"
+                    className="text-xs h-8"
+                    required={isHostedMode}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    🔐 Use Docker Hub Access Tokens for better security.
+                    <a
+                      href="https://docs.docker.com/docker-hub/access-tokens/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:text-blue-600 underline ml-1"
+                    >
+                      Learn how to create one
+                    </a>
+                  </p>
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor="imageName"
+                    className="text-xs font-medium mb-1.5 block text-muted-foreground"
+                  >
+                    Image Name (Auto-updated from username)
+                  </Label>
+                  <Input
+                    id="imageName"
+                    value={imageName}
+                    onChange={(e) => setImageName(e.target.value)}
+                    placeholder="e.g., your-username/my-app:latest"
+                    className="text-xs h-8"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    💡 Image name automatically updates from your username
+                    (emails will use the part before @)
+                  </p>
+                </div>
+              </div>
+
+              {/* Additional tips for hosted mode */}
+              {isHostedMode && (
+                <div className="text-xs text-blue-600 dark:text-blue-400 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+                  <strong>Hosted Mode Behavior:</strong>
+                  <ul className="mt-1 space-y-1">
+                    <li>
+                      • Docker images are built and immediately pushed to Docker
+                      Hub
+                    </li>
+                    <li>
+                      • Local storage is not available - remote registry is
+                      mandatory
+                    </li>
+                    <li>
+                      • Images are automatically cleaned up after successful
+                      push
+                    </li>
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex flex-col space-y-1.5">
                 <Button
                   onClick={handleBuildDockerImage}
                   size="sm"
                   className="text-xs h-7"
+                  disabled={
+                    isBuilding ||
+                    (isHostedMode && (!dockerHubUsername || !dockerHubPassword))
+                  }
                 >
-                  Build Docker Image
+                  {isBuilding ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      {isHostedMode || (dockerHubUsername && dockerHubPassword)
+                        ? "Building & Pushing to Docker Hub..."
+                        : "Building Docker Image..."}
+                    </>
+                  ) : isHostedMode ? (
+                    "Build & Push to Docker Hub"
+                  ) : dockerHubUsername && dockerHubPassword ? (
+                    "Build & Push to Docker Hub"
+                  ) : (
+                    "Build Docker Image"
+                  )}
                 </Button>
               </div>
-            </CardContent>
-          )}
-        </Card>
 
-        <Card className="shadow-none border-border/50">
-          <CardHeader
-            className="p-3 flex flex-row items-center justify-between cursor-pointer"
-            onClick={() => toggleSection("dockerHub")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) =>
-              (e.key === "Enter" || e.key === " ") && toggleSection("dockerHub")
-            }
-            aria-expanded={openSections.dockerHub}
-            aria-controls="dockerhub-content"
-          >
-            <CardTitle className="text-sm font-medium">Docker Hub</CardTitle>
-            {openSections.dockerHub ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </CardHeader>
-          {openSections.dockerHub && (
-            <CardContent className="space-y-3 p-3 pt-0" id="dockerhub-content">
-              <div>
-                <Label
-                  htmlFor="dockerHubUser"
-                  className="text-xs font-medium mb-1.5 block text-muted-foreground"
-                >
-                  Docker Hub Username
-                </Label>
-                <Input
-                  id="dockerHubUser"
-                  value={dockerHubUsername}
-                  onChange={(e) => setDockerHubUsername(e.target.value)}
-                  placeholder="e.g., yourusername"
-                  className="text-xs h-8"
-                />
-              </div>
-              <div>
-                <Label
-                  htmlFor="dockerHubPass"
-                  className="text-xs font-medium mb-1.5 block text-muted-foreground"
-                >
-                  Docker Hub Password/Token
-                </Label>
-                <Input
-                  id="dockerHubPass"
-                  type="password"
-                  value={dockerHubPassword}
-                  onChange={(e) => setDockerHubPassword(e.target.value)}
-                  placeholder="Enter your password or token"
-                  className="text-xs h-8"
-                />
-              </div>
-              <div>
-                <Label
-                  htmlFor="imageName"
-                  className="text-xs font-medium mb-1.5 block text-muted-foreground"
-                >
-                  Image Name
-                </Label>
-                <Input
-                  id="imageName"
-                  value={imageName}
-                  onChange={(e) => setImageName(e.target.value)}
-                  placeholder="e.g., your-username/my-app:latest"
-                  className="text-xs h-8"
-                />
-              </div>
-              <Button
-                onClick={handlePushImage}
-                size="sm"
-                className="w-full text-xs h-7"
-              >
-                Push Image
-              </Button>
+              {/* Docker Build Output */}
+              {showBuildOutput && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-xs font-medium text-muted-foreground">
+                      Docker Build Output
+                    </Label>
+                    <Button
+                      onClick={() => setShowBuildOutput(false)}
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                    >
+                      ×
+                    </Button>
+                  </div>
+                  <div className="bg-black border border-border/50 rounded-md">
+                    <ScrollArea className="h-64 w-full">
+                      <pre className="p-3 text-xs font-mono text-green-400 whitespace-pre-wrap leading-relaxed">
+                        {buildOutput}
+                        {isBuilding && (
+                          <span className="animate-pulse text-blue-400">
+                            ▊ Building...
+                          </span>
+                        )}
+                      </pre>
+                    </ScrollArea>
+                  </div>
+                </div>
+              )}
             </CardContent>
           )}
         </Card>

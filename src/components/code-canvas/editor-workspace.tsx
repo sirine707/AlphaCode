@@ -65,8 +65,19 @@ const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
         </div>
       ) : (
         <div className="flex h-full w-full flex-1 items-center justify-center bg-background">
-          <div className="select-none text-9xl font-bold text-muted-foreground opacity-20">
-            ALPHA
+          <div className="max-w-md text-center space-y-4">
+            <div className="select-none text-6xl font-bold text-muted-foreground opacity-30">
+              ALPHA
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <p>Welcome to AlphaCode!</p>
+              <p className="mt-2">
+                Open a file from the explorer to start coding
+              </p>
+              <p className="mt-1 text-xs opacity-70">
+                Click on any file in the left panel to begin
+              </p>
+            </div>
           </div>
         </div>
       )}

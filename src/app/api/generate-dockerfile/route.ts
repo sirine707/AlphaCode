@@ -91,19 +91,58 @@ export async function POST(req: NextRequest) {
     ];
 
     const systemPrompt = `
-Based on the provided project files, generate a complete, production-ready, multi-stage Dockerfile for this Next.js application.
+You are generating a Dockerfile for a Next.js application. This Dockerfile MUST include Python installation or it will fail to build.
 
-The Dockerfile should:
-1.  Use a specific Node.js version (e.g., node:20-alpine).
-2.  Include separate stages for dependency installation, building the application, and the final production runtime.
-3.  Copy over only the necessary files at each stage (e.g., package.json, lock files, source code, build output).
-4.  Handle Next.js-specifics like the standalone output mode if applicable (check next.config.js/mjs).
-5.  Expose the correct port (usually 3000).
-6.  Run the application as a non-root user for security.
-7.  Set appropriate environment variables, like NODE_ENV=production.
-8.  Include a CMD to start the server.
+CRITICAL REQUIREMENTS - FAILURE TO FOLLOW WILL CAUSE BUILD ERRORS:
 
-Do not include any explanations, comments, or markdown formatting in the output. Provide only the raw Dockerfile content.
+1. MANDATORY: Every stage that runs "npm ci" or "npm install" MUST have this line IMMEDIATELY after WORKDIR:
+   RUN apk add --no-cache python3 make g++ gcc musl-dev libc6-compat
+
+2. Use node:22-alpine as base image
+
+3. Create exactly 3 stages:
+   - deps: Install production dependencies with Python tools
+   - builder: Build application with Python tools  
+   - runner: Final runtime (no Python tools needed)
+
+4. Next.js standalone configuration:
+   - Copy from builder: /app/.next/standalone -> ./
+   - Copy from builder: /app/.next/static -> ./.next/static
+   - Copy from builder: /app/public -> ./public
+   - Use CMD ["node", "server.js"]
+
+5. Security: Create nextjs:nodejs user (uid:gid 1001) in runner stage only
+
+EXACT TEMPLATE TO FOLLOW:
+
+FROM node:22-alpine AS deps
+WORKDIR /app
+RUN apk add --no-cache python3 make g++ gcc musl-dev libc6-compat
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production && npm cache clean --force
+
+FROM node:22-alpine AS builder
+WORKDIR /app
+RUN apk add --no-cache python3 make g++ gcc musl-dev libc6-compat
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+USER nextjs
+EXPOSE 3000
+ENV PORT=3000 HOSTNAME="0.0.0.0"
+CMD ["node", "server.js"]
+
+CRITICAL: If you do not include "RUN apk add --no-cache python3 make g++ gcc musl-dev libc6-compat" in both deps and builder stages, the build WILL FAIL with Python errors.
+
+Output only the raw Dockerfile content without explanations or markdown.
 `;
 
     let fileContext = "Here is the project context:\n\n";
@@ -165,7 +204,24 @@ Do not include any explanations, comments, or markdown formatting in the output.
     }
 
     const data = await response.json();
-    const dockerfileContent = data.choices[0].message.content;
+    let dockerfileContent = data.choices[0].message.content;
+
+    // Clean up markdown code block markers that the AI might include despite instructions
+    if (dockerfileContent.includes("```")) {
+      console.log("Cleaning up markdown code block markers from Dockerfile");
+      // Remove ```dockerfile or ```Dockerfile at the start
+      dockerfileContent = dockerfileContent.replace(
+        /^```[Dd]ockerfile\s*\n?/gm,
+        ""
+      );
+      // Remove ``` at the end
+      dockerfileContent = dockerfileContent.replace(/\n?```\s*$/gm, "");
+      // Remove any remaining ``` markers
+      dockerfileContent = dockerfileContent.replace(/```/g, "");
+    }
+
+    // Trim any extra whitespace
+    dockerfileContent = dockerfileContent.trim();
 
     console.log("Successfully generated Dockerfile.");
     // Return both the generated Dockerfile and the context/prompt sent to the language model
