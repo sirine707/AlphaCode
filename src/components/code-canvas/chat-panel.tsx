@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import type { FileItem } from "./file-explorer-panel";
 import { initialFiles } from "./file-explorer-panel"; // Uses the re-exported initialFilesData
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Avatar3D from "@/components/ui/avatar-3d";
 
 const models = [
   {
@@ -410,7 +411,7 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
               )}
             >
               {message.sender === "bot" && (
-                <Avatar className="h-8 w-8 border">
+                <Avatar className="h-12 w-12 border">
                   <AvatarImage src="/bot-avatar.png" alt="AI Avatar" />
                   <AvatarFallback>AI</AvatarFallback>
                 </Avatar>
@@ -444,12 +445,7 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
                   })}
                 </div>
               </div>
-              {message.sender === "user" && (
-                <Avatar className="h-8 w-8 border">
-                  <AvatarImage src="/user-avatar.png" alt="User Avatar" />
-                  <AvatarFallback>U</AvatarFallback>
-                </Avatar>
-              )}
+              {message.sender === "user" && <Avatar3D className="h-12 w-12" />}
             </div>
           ))}
         </div>
