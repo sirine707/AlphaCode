@@ -1,15 +1,14 @@
-
-import type React from 'react';
-import { Play, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { FileItem } from './file-explorer-panel';
-import { Button } from '@/components/ui/button';
+import type React from "react";
+import { Play, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { FileItem } from "./file-explorer-panel";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 
 interface FileTabsBarProps {
   openFiles: FileItem[];
@@ -27,18 +26,40 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
   onRunClick,
 }) => {
   const getFileIcon = (fileName: string) => {
-    if (fileName.endsWith('.py')) {
+    if (fileName.endsWith(".py")) {
       return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
-          <path d="M13.5 2H10L6 22h4l3.5-20"/>
-          <path d="M10.5 2H14l4 20h-4L10.5 2z"/>
-          <circle cx="12" cy="12" r="10"/>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-blue-400"
+        >
+          <path d="M13.5 2H10L6 22h4l3.5-20" />
+          <path d="M10.5 2H14l4 20h-4L10.5 2z" />
+          <circle cx="12" cy="12" r="10" />
         </svg>
       );
     }
-    if (fileName.endsWith('.js')) {
+    if (fileName.endsWith(".js")) {
       return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-yellow-400"
+        >
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
           <path d="M7.5 4.21l4.5 2.62l4.5-2.62"></path>
           <path d="M7.5 19.79l4.5-2.62l4.5 2.62"></path>
@@ -48,20 +69,42 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
         </svg>
       );
     }
-     if (fileName.endsWith('.json')) {
+    if (fileName.endsWith(".json")) {
       return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-400">
-          <path d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-          <path d="M16 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2"/>
-          <path d="M12 8v8"/>
-          <path d="M10 10h4"/>
-          <path d="M10 14h4"/>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-orange-400"
+        >
+          <path d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+          <path d="M16 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2" />
+          <path d="M12 8v8" />
+          <path d="M10 10h4" />
+          <path d="M10 14h4" />
         </svg>
       );
     }
-    if (fileName.endsWith('.md')) {
+    if (fileName.endsWith(".md")) {
       return (
-         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-gray-400"
+        >
           <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
           <polyline points="14 2 14 8 20 8"></polyline>
           <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -72,7 +115,18 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
     }
     // Default file icon
     return (
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-muted-foreground"
+      >
         <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
         <polyline points="14 2 14 8 20 8"></polyline>
       </svg>
@@ -81,8 +135,8 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-10 items-center border-b border-border bg-card px-1 shadow-sm">
-        <div className="flex h-full flex-1 items-end overflow-x-auto">
+      <div className="flex h-10 items-center border-b border-border bg-card px-1 shadow-sm min-w-0 w-full">
+        <div className="flex h-full flex-1 items-end overflow-x-auto scrollbar-thin scrollbar-thumb-border min-w-0">
           {openFiles.length === 0 ? (
             <div className="flex h-full items-center pl-3 text-xs text-muted-foreground italic">
               {/* Placeholder when no files are open */}
@@ -92,7 +146,7 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
               <div
                 key={file.path}
                 className={cn(
-                  "flex h-full cursor-pointer items-center space-x-2 border-r border-t border-border px-4 pt-1 text-sm",
+                  "flex h-full cursor-pointer items-center space-x-2 border-r border-t border-border px-2 md:px-4 pt-1 text-sm min-w-0 whitespace-nowrap", // Responsive padding
                   activeFilePath === file.path
                     ? "bg-background text-foreground shadow-[0px_-2px_5px_-2px_rgba(0,0,0,0.1)] border-primary relative after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-primary"
                     : "bg-card text-muted-foreground hover:bg-background/70 hover:text-foreground"
@@ -105,7 +159,9 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
                 <button
                   className={cn(
                     "ml-auto rounded p-0.5 hover:bg-muted-foreground/20",
-                    activeFilePath === file.path ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                    activeFilePath === file.path
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                   aria-label={`Close tab ${file.name}`}
                   onClick={(e) => {
@@ -119,13 +175,15 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
             ))
           )}
         </div>
-        <div className="flex items-center px-2">
+        <div className="flex items-center px-1 md:px-2">
+          {" "}
+          {/* Responsive padding */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-primary hover:bg-primary/20"
+                className="h-6 w-6 md:h-7 md:w-7 text-primary hover:bg-primary/20"
                 onClick={onRunClick}
                 aria-label="Run Code"
                 disabled={!activeFilePath}
@@ -133,7 +191,10 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
                 <Play className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="bg-card text-foreground border-border text-xs p-1">
+            <TooltipContent
+              side="bottom"
+              className="bg-card text-foreground border-border text-xs p-1"
+            >
               <p>Run Code</p>
             </TooltipContent>
           </Tooltip>

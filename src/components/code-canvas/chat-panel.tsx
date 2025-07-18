@@ -35,21 +35,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const models = [
   {
-    id: "qwen/qwen-2.5-coder-32b-instruct:free",
-    name: "Qwen 2.5 Coder (Free)",
+    id: "deepseek/deepseek-chat-v3-0324:free",
+    name: "DeepSeek Chat V3",
   },
   {
-    id: "mistralai/mistral-7b-instruct:free",
-    name: "Mistral 7B Instruct (Free)",
-  },
-  {
-    id: "nousresearch/nous-hermes-2-mixtral-8x7b-dpo:free",
-    name: "Nous Hermes 2 Mixtral (Free)",
-  },
-  { id: "google/gemma-7b-it:free", name: "Google Gemma 7B (Free)" },
-  {
-    id: "meta-llama/llama-3-8b-instruct:free",
-    name: "Meta Llama 3 8B Instruct (Free)",
+    id: "google/gemini-2.0-flash-exp:free",
+    name: "Gemini 2.0 Flash",
   },
 ];
 
@@ -177,7 +168,6 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
   const [selectedContextItem, setSelectedContextItem] =
     useState<FileItem | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
   const [isContextSelectorOpen, setIsContextSelectorOpen] = useState(false);
   const [selectedContext, setSelectedContext] = useState<FileItem | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
@@ -188,81 +178,98 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() && !selectedContext) return;
+    if (!inputValue.trim() && !selectedContext && !selectedContextItem) return;
+
+    // Use selectedContextItem if available, otherwise fall back to selectedContext
+    const contextToUse = selectedContextItem || selectedContext;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      text: input,
+      text: inputValue,
       sender: "user",
-      contextPath: selectedContext?.path,
-      contextName: selectedContext?.name,
-      contextType: selectedContext?.type,
+      contextPath: contextToUse?.path,
+      contextName: contextToUse?.name,
+      contextType: contextToUse?.type,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
 
-    // If there's a file context, call the explain API route
-    if (selectedContext && selectedContext.type === "file") {
-      setIsLoading(true);
-      const botLoadingMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: "",
-        sender: "bot",
-        isLoading: true,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, botLoadingMessage]);
+    const botLoadingMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
+      text: "",
+      sender: "bot",
+      isLoading: true,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, botLoadingMessage]);
 
-      try {
-        const response = await fetch("/api/explain", {
+    try {
+      let response;
+
+      // If there's a file context, call the explain API route
+      if (contextToUse && contextToUse.type === "file") {
+        response = await fetch("/api/explain", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            filePath: selectedContext.path,
+            filePath: contextToUse.path,
+            model: selectedModel,
+            content: contextToUse.content,
+          }),
+        });
+      } else {
+        // For general chat messages, call the chat API route
+        response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: inputValue,
             model: selectedModel,
           }),
         });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        const botMessage: ChatMessage = {
-          id: (Date.now() + 2).toString(),
-          text: result.explanation,
-          sender: "bot",
-          timestamp: new Date(),
-        };
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === botLoadingMessage.id ? botMessage : msg
-          )
-        );
-      } catch (error) {
-        console.error("Failed to explain file:", error);
-        const errorMessage: ChatMessage = {
-          id: (Date.now() + 2).toString(),
-          text: "Sorry, I couldn't explain that file. Please try again.",
-          sender: "bot",
-          timestamp: new Date(),
-        };
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === botLoadingMessage.id ? errorMessage : msg
-          )
-        );
-      } finally {
-        setIsLoading(false);
       }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      const botMessage: ChatMessage = {
+        id: (Date.now() + 2).toString(),
+        text: result.explanation || result.response,
+        sender: "bot",
+        timestamp: new Date(),
+      };
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === botLoadingMessage.id ? botMessage : msg))
+      );
+    } catch (error) {
+      console.error("Failed to get AI response:", error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 2).toString(),
+        text: "Sorry, I couldn't process your request. Please try again.",
+        sender: "bot",
+        timestamp: new Date(),
+      };
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botLoadingMessage.id ? errorMessage : msg
+        )
+      );
+    } finally {
+      setIsLoading(false);
     }
 
-    setInput("");
+    setInputValue("");
     setSelectedContext(null);
+    setSelectedContextItem(null);
     setIsContextSelectorOpen(false);
   };
 
@@ -298,7 +305,11 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ filePath: file.path, model: selectedModel }),
+        body: JSON.stringify({
+          filePath: file.path,
+          model: selectedModel,
+          content: file.content,
+        }),
       });
 
       if (!response.ok) {
@@ -370,22 +381,31 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
   return (
     <div
       className={cn(
-        "flex h-full flex-col bg-card", // Changed from bg-background
-        "w-full md:w-[440px]"
+        "flex h-full flex-col bg-card overflow-hidden panel-content", // Added panel-content class
+        "w-full min-w-0 max-w-full"
       )}
     >
-      <div className="flex items-center justify-between border-b p-2">
-        <div className="flex items-center space-x-2">
-          <h2 className="text-lg font-semibold">Chat</h2>
+      <div className="flex items-center justify-between border-b p-2 shrink-0">
+        {" "}
+        {/* Added shrink-0 */}
+        <div className="flex items-center space-x-2 min-w-0">
+          {" "}
+          {/* Added min-w-0 */}
+          <h2 className="text-lg font-semibold truncate">Chat</h2>{" "}
+          {/* Added truncate */}
         </div>
       </div>
-      <ScrollArea className="flex-1" ref={scrollAreaRef}>
-        <div className="space-y-6 p-4">
+      <ScrollArea className="flex-1 min-h-0" ref={scrollAreaRef}>
+        {" "}
+        {/* Added min-h-0 */}
+        <div className="space-y-6 p-4 min-w-0">
+          {" "}
+          {/* Added min-w-0 */}
           {messages.map((message) => (
             <div
               key={message.id}
               className={cn(
-                "flex items-start gap-3",
+                "flex items-start gap-3 min-w-0",
                 message.sender === "user" ? "justify-end" : ""
               )}
             >
@@ -397,10 +417,10 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
               )}
               <div
                 className={cn(
-                  "max-w-xs rounded-lg px-3 py-2 text-sm md:max-w-md",
+                  "max-w-[85%] rounded-lg px-3 py-2 text-sm break-words min-w-0 word-wrap overflow-wrap-anywhere", // Added responsive word wrapping
                   message.sender === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card text-card-foreground", // Changed from bg-muted
+                    ? "bg-primary text-primary-foreground ml-auto"
+                    : "bg-muted",
                   message.isLoading && "animate-pulse"
                 )}
               >
@@ -434,16 +454,20 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
           ))}
         </div>
       </ScrollArea>
-      <div className="border-t p-2">
+      <div className="border-t p-2 space-y-2 shrink-0 min-w-0">
+        {" "}
+        {/* Added shrink-0 and min-w-0 */}
         {selectedContextItem && (
-          <div className="mb-2 flex items-center justify-between rounded-md border bg-muted p-1.5 pl-2.5 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium">Context:</span>
-              <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between rounded-md border bg-muted p-1.5 pl-2.5 text-sm min-w-0">
+            {" "}
+            {/* Added min-w-0 */}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="text-xs font-medium shrink-0">Context:</span>
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 {selectedContextItem.type === "file" ? (
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                 ) : (
-                  <Folder className="h-4 w-4 text-accent" />
+                  <Folder className="h-4 w-4 text-accent shrink-0" />
                 )}
                 <span className="truncate font-mono text-xs">
                   {selectedContextItem.name}
@@ -461,10 +485,12 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
             </Button>
           </div>
         )}
-        <div className="relative">
+        <div className="relative min-w-0">
+          {" "}
+          {/* Added min-w-0 */}
           <Input
             placeholder="Ask a question or type '/' for commands..."
-            className="pr-24"
+            className="pr-16 text-sm min-w-0 w-full" // Added min-w-0 and w-full
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => {
@@ -474,14 +500,18 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
               }
             }}
           />
-          <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2 gap-1 shrink-0">
+            {" "}
+            {/* Added shrink-0 */}
             <Popover
               open={isContextPopoverOpen}
               onOpenChange={setIsContextPopoverOpen}
             >
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
-                  <Paperclip className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  {" "}
+                  {/* Made smaller */}
+                  <Paperclip className="h-3.5 w-3.5" />
                   <span className="sr-only">Attach context</span>
                 </Button>
               </PopoverTrigger>
@@ -496,18 +526,23 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
                 </ScrollArea>
               </PopoverContent>
             </Popover>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <Mic className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-6 w-6">
+              {" "}
+              {/* Made smaller */}
+              <Mic className="h-3.5 w-3.5" />
               <span className="sr-only">Use microphone</span>
             </Button>
           </div>
         </div>
-        <div className="mt-2 flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 min-w-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-8 text-xs">
-                {selectedModelName}
-                <ChevronDown className="ml-2 h-4 w-4" />
+              <Button
+                variant="outline"
+                className="h-7 text-xs truncate max-w-[150px] min-w-0"
+              >
+                <span className="truncate">{selectedModelName}</span>
+                <ChevronDown className="ml-1 h-3 w-3 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
@@ -521,9 +556,12 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={() => handleSendMessage()} className="h-8">
+          <Button
+            onClick={() => handleSendMessage()}
+            className="h-7 text-xs shrink-0"
+          >
             Send
-            <Send className="ml-2 h-4 w-4" />
+            <Send className="ml-1 h-3 w-3" />
           </Button>
         </div>
       </div>

@@ -1,35 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  console.log("--- /api/explain: Request received ---");
+  console.log("--- /api/chat: Request received ---");
 
   try {
     const body = await req.json();
     console.log("Request body:", body);
 
-    const { filePath, model, content } = body;
+    const { message, model } = body;
 
-    console.log(
-      `Model: ${model}, File Path: ${filePath}, Has Content: ${!!content}`
-    );
+    console.log(`Model: ${model}, Message: ${message}`);
 
-    if (!filePath || !model) {
-      console.error("Missing filePath or model in the request.");
+    if (!message || !model) {
+      console.error("Missing message or model in the request.");
       return NextResponse.json(
-        { error: "File path and model are required." },
+        { error: "Message and model are required." },
         { status: 400 }
       );
     }
 
-    // Use provided content or fallback to mock content
-    const fileContent =
-      content ||
-      `// Mock content for ${filePath}\n// This would be the actual file content in a real implementation`;
-
-    // Construct the prompt for explanation
-    const prompt = `Please explain the following code file located at "${filePath}":\n\n${fileContent}\n\nProvide a clear and concise explanation of what this code does, its purpose, and key components.`;
-
-    console.log("Explanation prompt prepared for model:", model);
+    console.log("Chat prompt prepared for model:", model);
 
     // Use OpenRouter API
     const openRouterApiKey = process.env.OPENROUTER_API_KEY;
@@ -50,7 +40,7 @@ export async function POST(req: NextRequest) {
           "Content-Type": "application/json",
           "HTTP-Referer":
             process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-          "X-Title": "AlphaCode - AI Code Explanation",
+          "X-Title": "AlphaCode - AI Chat Assistant",
         },
         body: JSON.stringify({
           model: model,
@@ -58,11 +48,11 @@ export async function POST(req: NextRequest) {
             {
               role: "system",
               content:
-                "You are a helpful AI assistant that explains code clearly and concisely. Focus on the purpose, functionality, and key components of the code.",
+                "You are a helpful AI assistant for developers. You can help with coding questions, explain concepts, debug issues, and provide programming guidance. Be concise but thorough in your responses.",
             },
             {
               role: "user",
-              content: prompt,
+              content: message,
             },
           ],
           max_tokens: 1000,
@@ -78,7 +68,7 @@ export async function POST(req: NextRequest) {
       console.error(`[${model}] OpenRouter API error:`, errorBody);
       return NextResponse.json(
         {
-          error: `Failed to fetch explanation from OpenRouter: ${response.statusText}`,
+          error: `Failed to fetch response from OpenRouter: ${response.statusText}`,
         },
         { status: response.status }
       );
@@ -89,22 +79,22 @@ export async function POST(req: NextRequest) {
     // Log the full model response to help with debugging
     console.log("Full OpenRouter response:", JSON.stringify(data, null, 2));
 
-    // Extract the explanation from the response
-    const explanation = data?.choices?.[0]?.message?.content?.trim() ?? "";
+    // Extract the response from the API
+    const aiResponse = data?.choices?.[0]?.message?.content?.trim() ?? "";
 
-    if (!explanation) {
-      console.error("Failed to extract explanation from OpenRouter response.");
+    if (!aiResponse) {
+      console.error("Failed to extract response from OpenRouter response.");
       return NextResponse.json(
-        { error: "Failed to extract explanation from OpenRouter response." },
+        { error: "Failed to extract response from OpenRouter response." },
         { status: 500 }
       );
     }
 
-    console.log("Explanation extracted successfully");
+    console.log("AI response extracted successfully");
 
-    return NextResponse.json({ explanation });
+    return NextResponse.json({ response: aiResponse });
   } catch (error) {
-    console.error("Error in /api/explain:", error);
+    console.error("Error in /api/chat:", error);
     return NextResponse.json(
       { error: "An internal server error occurred." },
       { status: 500 }

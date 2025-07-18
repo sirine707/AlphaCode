@@ -603,9 +603,9 @@ ${
   }, [activeFile]);
 
   return (
-    <ScrollArea className="h-full w-full bg-card p-4">
-      <div className="flex flex-col space-y-4">
-        <Card className="shadow-none border-border/50">
+    <ScrollArea className="h-full w-full bg-card p-4 overflow-hidden panel-content">
+      <div className="flex flex-col space-y-4 min-w-0 max-w-full">
+        <Card className="shadow-none border-border/50 min-w-0">
           <CardHeader
             className="p-3 flex flex-row items-center justify-between cursor-pointer"
             onClick={() => toggleSection("infrastructure")}
@@ -679,7 +679,7 @@ ${
                       value={awsAccessKey}
                       onChange={(e) => setAwsAccessKey(e.target.value)}
                       placeholder="AKIAIOSFODNN7EXAMPLE"
-                      className="text-xs h-8"
+                      className="text-xs h-8 min-w-0 w-full"
                     />
                   </div>
                   <div>
@@ -695,7 +695,7 @@ ${
                       value={awsSecretKey}
                       onChange={(e) => setAwsSecretKey(e.target.value)}
                       placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-                      className="text-xs h-8"
+                      className="text-xs h-8 min-w-0 w-full"
                     />
                   </div>
                   <div>

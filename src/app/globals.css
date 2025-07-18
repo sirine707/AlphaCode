@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  font-family: 'Source Code Pro', monospace;
+  font-family: "Source Code Pro", monospace;
 }
 
 @layer base {
@@ -72,7 +72,7 @@ body {
     --sidebar-foreground: 0 0% 83.1%;
     --sidebar-primary: 207 90% 67.8%;
     --sidebar-primary-foreground: 0 0% 10%;
-    --sidebar-accent:  0 0% 22%;
+    --sidebar-accent: 0 0% 22%;
     --sidebar-accent-foreground: 0 0% 90%;
     --sidebar-border: 0 0% 12.5%;
     --sidebar-ring: 207 90% 67.8%;
@@ -86,4 +86,94 @@ body {
   body {
     @apply bg-background text-foreground dark; /* Enforce dark theme */
   }
+  html,
+  body {
+    overflow-x: hidden; /* Prevent horizontal scroll */
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* === CodeMirror Editor Styling === */
+
+.codemirror-editor {
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  height: 100%;
+  width: 100%;
+  font-family: "Source Code Pro", monospace;
+}
+
+.codemirror-editor .cm-gutters {
+  background-color: #1e1e1e !important;
+  color: #858585 !important;
+  border-right: 1px solid #2c2c2c !important;
+}
+
+.codemirror-editor .cm-line {
+  background-color: #1e1e1e !important;
+}
+
+/* === Responsive Layout Adjustments === */
+
+/* Medium screens (tablets/small laptops) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .codemirror-editor {
+    font-size: 14px !important; /* Smaller font for medium screens */
+  }
+}
+
+/* Small screens (mobile) */
+@media (max-width: 767px) {
+  .codemirror-editor {
+    font-size: 12px !important; /* Even smaller font for mobile */
+  }
+}
+
+/* Panel Content Constraints */
+.panel-content {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Ensure resizable panels maintain proper constraints */
+[data-panel-group] [data-panel] {
+  min-width: 0 !important;
+  overflow: hidden;
+}
+
+/* Input and text elements in panels */
+.panel-content input,
+.panel-content textarea,
+.panel-content select {
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Text wrapping in panels */
+.panel-content * {
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Specific fixes for truncated text in panels */
+.panel-content h1,
+.panel-content h2,
+.panel-content h3,
+.panel-content h4,
+.panel-content h5,
+.panel-content h6 {
+  word-break: break-word;
+}
+
+/* Card content responsive behavior */
+.panel-content .space-y-1,
+.panel-content .space-y-2,
+.panel-content .space-y-3,
+.panel-content .space-y-4 {
+  min-width: 0;
 }

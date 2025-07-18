@@ -43,9 +43,9 @@ const EditorWorkspace: React.FC<EditorWorkspaceProps> = ({
   };
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden relative bg-background">
+    <div className="flex flex-1 flex-col overflow-hidden relative bg-background min-w-0 w-full h-full">
       {activeFile ? (
-        <div className="flex-grow flex flex-col h-full">
+        <div className="flex-grow flex flex-col h-full min-w-0">
           <FileTabsBar
             openFiles={openFiles}
             activeFilePath={activeFilePath}

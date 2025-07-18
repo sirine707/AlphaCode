@@ -41,6 +41,32 @@ const CodeCanvasLayout: React.FC = () => {
   const [dockerfileGenerationTrigger, setDockerfileGenerationTrigger] =
     useState(0);
 
+  // Responsive state for screen size
+  const [isMediumScreen, setIsMediumScreen] = useState(false);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMediumScreen(window.innerWidth >= 768 && window.innerWidth < 1024);
+    };
+
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
+
+  // Adjust default sizes based on screen size
+  useEffect(() => {
+    if (isMediumScreen) {
+      setRightPanelDefaultSize(25); // Smaller right panel on medium screens
+      // Auto-hide left panel if both panels are open on medium screens to save space
+      if (isSidePanelVisible && isRightPanelVisible) {
+        // Keep both panels but make them smaller
+      }
+    } else {
+      setRightPanelDefaultSize(30);
+    }
+  }, [isMediumScreen, isSidePanelVisible, isRightPanelVisible]);
+
   const [openFiles, setOpenFiles] = useState<FileItem[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
 
@@ -295,7 +321,7 @@ const CodeCanvasLayout: React.FC = () => {
   }, [activeRightView, isRightPanelVisible]);
 
   return (
-    <div className="h-screen w-full bg-background text-foreground">
+    <div className="h-screen w-full bg-background text-foreground overflow-hidden">
       <PanelGroup direction="vertical">
         <Panel id="title-bar-panel" defaultSize={5} minSize={5} maxSize={5}>
           <TitleBar
@@ -319,12 +345,17 @@ const CodeCanvasLayout: React.FC = () => {
             <PanelGroup direction="horizontal" className="flex-1">
               {isSidePanelVisible && (
                 <Panel
-                  defaultSize={20}
-                  minSize={15}
-                  className="bg-card"
+                  defaultSize={isMediumScreen ? 18 : 20}
+                  minSize={isMediumScreen ? 12 : 15}
+                  maxSize={isMediumScreen ? 25 : 35}
+                  className="bg-card min-w-0 overflow-hidden" // Added overflow constraint classes
                   collapsible={false}
                 >
-                  {renderLeftPanel()}
+                  <div className="h-full w-full min-w-0 overflow-hidden">
+                    {" "}
+                    {/* Added wrapper with constraints */}
+                    {renderLeftPanel()}
+                  </div>
                 </Panel>
               )}
 
@@ -332,7 +363,11 @@ const CodeCanvasLayout: React.FC = () => {
                 <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
               )}
 
-              <Panel defaultSize={80}>
+              <Panel
+                defaultSize={
+                  isMediumScreen ? (isSidePanelVisible ? 57 : 75) : 80
+                }
+              >
                 <PanelGroup direction="horizontal">
                   <Panel>
                     <EditorWorkspace
@@ -349,11 +384,16 @@ const CodeCanvasLayout: React.FC = () => {
                       <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
                       <Panel
                         defaultSize={rightPanelDefaultSize}
-                        minSize={20}
-                        maxSize={80}
+                        minSize={isMediumScreen ? 18 : 20}
+                        maxSize={isMediumScreen ? 40 : 80}
                         collapsible={false}
+                        className="min-w-0 overflow-hidden" // Added overflow constraint classes
                       >
-                        {renderRightPanel()}
+                        <div className="h-full w-full min-w-0 overflow-hidden">
+                          {" "}
+                          {/* Added wrapper with constraints */}
+                          {renderRightPanel()}
+                        </div>
                       </Panel>
                     </>
                   )}
