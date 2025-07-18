@@ -106,82 +106,65 @@ const addItemToParent = (
   });
 };
 
-export const initialFilesData: FileItem[] = [
-  {
-    name: "PROJECT_ROOT",
-    type: "folder",
-    path: "/",
-    icon: Folder,
-    children: [
-      {
-        name: "src",
-        type: "folder",
-        path: "/src",
-        icon: Folder,
-        children: [
-          {
-            name: "app.py",
-            type: "file",
-            icon: FileIcon,
-            path: "/src/app.py",
-            content:
-              '# Welcome to app.py\n\ndef main():\n    print("Hello from app.py")\n\nif __name__ == "__main__":\n    main()',
-          },
-          {
-            name: "utils.js",
-            type: "file",
-            icon: FileIcon,
-            path: "/src/utils.js",
-            content:
-              "// JavaScript utility functions\n\nfunction greet(name) {\n  return `Hello, ${name}!`;\n}\n\nmodule.exports = { greet };",
-          },
-        ],
-      },
-      {
-        name: "tests",
-        type: "folder",
-        path: "/tests",
-        icon: Folder,
-        children: [
-          {
-            name: "test_app.py",
-            type: "file",
-            icon: FileIcon,
-            path: "/tests/test_app.py",
-            content:
-              '# Tests for app.py\n\nimport unittest\n# from src.app import main # Assuming app.py is structured to allow import\n\nclass TestApp(unittest.TestCase):\n    def test_example(self):\n        self.assertTrue(True)\n\nif __name__ == "__main__":\n    unittest.main()',
-          },
-        ],
-      },
-      {
-        name: "package.json",
-        type: "file",
-        icon: FileIcon,
-        path: "/package.json",
-        content:
-          '{\n  "name": "my-project",\n  "version": "1.0.0",\n  "description": "",\n  "main": "index.js",\n  "scripts": {\n    "test": "echo \\"Error: no test specified\\" && exit 1"\n  },\n  "keywords": [],\n  "author": "",\n  "license": "ISC"\n}',
-      },
-      {
-        name: "README.md",
-        type: "file",
-        icon: FileIcon,
-        path: "/README.md",
-        content: "# My Project\n\nThis is a sample README file.",
-      },
-    ],
-  },
-];
+export const initialFilesData: FileItem[] = [];
 
 function buildFileTreeFromBrowserFileList(fileList: FileList): FileItem[] {
   if (!fileList || fileList.length === 0) {
+    console.log("No files in fileList");
     return [];
   }
+
+  console.log("Processing", fileList.length, "files");
 
   // Determine the common root directory name
   const firstFilePathParts = fileList[0].webkitRelativePath
     .split("/")
     .filter((part) => part);
+
+  if (firstFilePathParts.length === 0) {
+    console.log("No webkitRelativePath found, using individual files");
+    // Handle individual files (not a folder upload)
+    const rootDirectory: FileItem = {
+      name: "UPLOADED_FILES",
+      type: "folder",
+      path: "/UPLOADED_FILES",
+      children: [],
+      icon: Folder,
+    };
+
+    Array.from(fileList).forEach((file, index) => {
+      const fileName = file.name;
+      const extension = fileName.split(".").pop()?.toLowerCase() || "";
+      let content = `// Content for ${fileName}\n// File uploaded to system`;
+
+      // Add basic content templates based on file type
+      if (extension === "md") {
+        content = `# ${fileName.replace(
+          ".md",
+          ""
+        )}\n\nContent from uploaded file.`;
+      } else if (["js", "jsx", "ts", "tsx"].includes(extension)) {
+        content = `// ${fileName}\n// JavaScript/TypeScript file\n\nexport default function Component() {\n  return null;\n}`;
+      } else if (extension === "json") {
+        content = `{\n  "name": "${fileName}",\n  "uploaded": true\n}`;
+      } else if (["py"].includes(extension)) {
+        content = `# ${fileName}\n# Python file\n\ndef main():\n    pass\n\nif __name__ == "__main__":\n    main()`;
+      }
+
+      rootDirectory.children?.push({
+        name: fileName,
+        type: "file",
+        path: `/UPLOADED_FILES/${fileName}`,
+        content,
+        icon: FileIcon,
+      });
+    });
+
+    return [rootDirectory];
+  }
+
   const projectRootName = firstFilePathParts[0] || "IMPORTED_PROJECT";
+  console.log("Project root name:", projectRootName);
 
   const rootDirectory: FileItem = {
     name: projectRootName,
@@ -196,14 +179,32 @@ function buildFileTreeFromBrowserFileList(fileList: FileList): FileItem[] {
     a.webkitRelativePath.localeCompare(b.webkitRelativePath)
   );
 
+  console.log(
+    "Sorted files:",
+    sortedFiles.map((f) => f.webkitRelativePath)
+  );
+
   for (const file of sortedFiles) {
     // Skip empty files or directories
-    if (!file.webkitRelativePath) continue;
+    if (!file.webkitRelativePath) {
+      console.log("Skipping file with no webkitRelativePath:", file.name);
+      continue;
+    }
 
     const pathParts = file.webkitRelativePath.split("/").filter((part) => part);
 
     // Skip if no valid path parts
-    if (pathParts.length === 0) continue;
+    if (pathParts.length === 0) {
+      console.log("Skipping file with no valid path parts:", file.name);
+      continue;
+    }
+
+    console.log(
+      "Processing file:",
+      file.webkitRelativePath,
+      "Size:",
+      file.size
+    );
 
     let currentNode = rootDirectory;
     let currentPath = `/${projectRootName}`;
@@ -214,8 +215,8 @@ function buildFileTreeFromBrowserFileList(fileList: FileList): FileItem[] {
       const isLastPart = i === pathParts.length - 1;
       const nodePath = `${currentPath}/${part}`;
 
-      if (isLastPart && file.size >= 0) {
-        // This is a file (last part of path and has a size)
+      if (isLastPart) {
+        // This is a file (last part of path)
         const existingFile = currentNode.children?.find(
           (child) => child.name === part && child.type === "file"
         );
@@ -243,16 +244,20 @@ function buildFileTreeFromBrowserFileList(fileList: FileList): FileItem[] {
             content = `<!DOCTYPE html>\n<html>\n<head>\n  <title>${part}</title>\n</head>\n<body>\n  <!-- Content imported from local system -->\n</body>\n</html>`;
           }
 
-          currentNode.children?.push({
+          // Create the file item
+          const fileItem: FileItem = {
             name: part,
             type: "file",
             path: nodePath,
             content,
             icon: FileIcon,
-          });
+          };
+
+          console.log("Adding file:", part, "to path:", nodePath);
+          currentNode.children?.push(fileItem);
         }
       } else {
-        // This is a directory (not the last part, or last part with no size)
+        // This is a directory (not the last part)
         let folderNode = currentNode.children?.find(
           (child) => child.name === part && child.type === "folder"
         );
@@ -265,6 +270,7 @@ function buildFileTreeFromBrowserFileList(fileList: FileList): FileItem[] {
             children: [],
             icon: Folder,
           };
+          console.log("Creating folder:", part, "at path:", nodePath);
           currentNode.children?.push(folderNode);
         }
 
@@ -291,6 +297,7 @@ function buildFileTreeFromBrowserFileList(fileList: FileList): FileItem[] {
   };
 
   sortChildren(rootDirectory);
+  console.log("Final project tree:", rootDirectory);
   return [rootDirectory];
 }
 
@@ -628,33 +635,65 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const files = event.target.files;
-    if (files && files.length > 0) {
-      setImportStatus(`Processing ${files.length} files...`);
-      console.log("Directory selected. Files found:", files.length);
-
-      setTimeout(() => {
-        const newProjectTree = buildFileTreeFromBrowserFileList(files);
-        onProjectFilesChange(newProjectTree);
-        if (newProjectTree.length > 0 && newProjectTree[0]?.path) {
-          onExpandedPathsChange(new Set([newProjectTree[0].path]));
-        } else {
-          onExpandedPathsChange(new Set());
-        }
-
-        setImportStatus(`Successfully imported ${files.length} files!`);
-        setTimeout(() => {
-          setImportStatus(null);
-          setIsImporting(false);
-        }, 3000);
-      }, 100);
-    } else {
+    if (!files || files.length === 0) {
       setImportStatus("Import cancelled or no files selected.");
       setTimeout(() => {
         setImportStatus(null);
         setIsImporting(false);
       }, 2000);
+      return;
     }
 
+    console.log("=== DIRECTORY IMPORT STARTED ===");
+    console.log("Directory selected. Files found:", files.length);
+    setImportStatus(`Processing ${files.length} files...`);
+
+    // Log file details for debugging
+    Array.from(files)
+      .slice(0, 10)
+      .forEach((file, index) => {
+        console.log(
+          `File ${index}: ${file.webkitRelativePath || file.name}, size: ${
+            file.size
+          }`
+        );
+      });
+    if (files.length > 10) {
+      console.log(`... and ${files.length - 10} more files`);
+    }
+
+    try {
+      console.log("Building project tree...");
+      const newProjectTree = buildFileTreeFromBrowserFileList(files);
+      console.log("Built project tree:", newProjectTree);
+      console.log("Project tree length:", newProjectTree.length);
+
+      if (newProjectTree.length > 0) {
+        console.log("Setting project files...");
+        onProjectFilesChange(newProjectTree);
+
+        if (newProjectTree[0]?.path) {
+          console.log("Expanding root folder:", newProjectTree[0].path);
+          onExpandedPathsChange(new Set([newProjectTree[0].path]));
+        }
+
+        setImportStatus(`Successfully imported ${files.length} files!`);
+        console.log("=== IMPORT COMPLETED SUCCESSFULLY ===");
+      } else {
+        console.log("No valid files found to import");
+        setImportStatus("No valid files found to import.");
+      }
+    } catch (error) {
+      console.error("Error building file tree:", error);
+      setImportStatus("Error occurred during import.");
+    }
+
+    setTimeout(() => {
+      setImportStatus(null);
+      setIsImporting(false);
+    }, 3000);
+
+    // Clear the input
     if (directoryInputRef.current) {
       directoryInputRef.current.value = "";
     }
@@ -669,18 +708,6 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({
     >
       {isOpen && (
         <div className="flex flex-col h-full min-w-0">
-          {/* Import Status Banner */}
-          {importStatus && (
-            <div className="mx-2 mb-2 p-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md">
-              <div className="flex items-center text-xs text-blue-700 dark:text-blue-300">
-                {isImporting && (
-                  <div className="animate-spin mr-2 h-3 w-3 border border-blue-500 border-t-transparent rounded-full"></div>
-                )}
-                <span>{importStatus}</span>
-              </div>
-            </div>
-          )}
-
           <div className="mb-3 px-2 flex items-center justify-between min-w-0">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-grow truncate">
               Explorer
@@ -711,6 +738,18 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({
             </DropdownMenu>
           </div>
           <ScrollArea className="flex-1 min-h-0">
+            {/* Show import status inside the scroll area */}
+            {importStatus && (
+              <div className="mx-2 mb-3 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <div className="flex items-center text-xs text-blue-700 dark:text-blue-300">
+                  {isImporting && (
+                    <div className="animate-spin mr-2 h-3 w-3 border border-blue-500 border-t-transparent rounded-full"></div>
+                  )}
+                  <span>{importStatus}</span>
+                </div>
+              </div>
+            )}
+            
             {projectFiles.length > 0 ? (
               <div className="min-w-0">
                 {projectFiles.map((item) => (
@@ -732,7 +771,7 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({
                   />
                 ))}
               </div>
-            ) : (
+            ) : !isImporting ? (
               <div className="p-4 text-center text-xs text-muted-foreground space-y-3">
                 <div>Project view cleared or no project loaded.</div>
 
@@ -776,29 +815,15 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({
                 >
                   Import Project Folder
                 </Button>
-
-                <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/20 p-2 rounded border border-blue-200 dark:border-blue-800">
-                  💡 <strong>Enhanced Import Features:</strong>
-                  <ul className="mt-1 text-xs space-y-1">
-                    <li>
-                      • Deep nested folders (src/components/ui/button.tsx)
-                    </li>
-                    <li>• Multiple file types with smart content templates</li>
-                    <li>• Automatic folder structure organization</li>
-                    <li>• Drag & drop support for individual files</li>
-                  </ul>
-                  <div className="mt-2 text-xs">
-                    Browser dialog for folders is required for security.
-                  </div>
-                </div>
               </div>
-            )}
+            ) : null}
           </ScrollArea>
           <input
             type="file"
             ref={directoryInputRef}
             onChange={handleDirectorySelected}
             style={{ display: "none" }}
+            multiple
             // @ts-ignore
             webkitdirectory=""
             // @ts-ignore
