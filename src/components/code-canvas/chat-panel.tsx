@@ -26,13 +26,15 @@ import {
   FileText,
   ChevronRight,
   UserCircle2,
+  ThumbsUp,
+  ThumbsDown,
+  RotateCcw,
 } from "lucide-react";
 import { detectLanguage } from "@/lib/language-detection";
 import { cn } from "@/lib/utils";
 import type { FileItem } from "./file-explorer-panel";
 import { initialFiles } from "./file-explorer-panel"; // Uses the re-exported initialFilesData
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import Avatar3D from "@/components/ui/avatar-3d";
 
 const models = [
   {
@@ -348,6 +350,97 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
     }
   };
 
+  const handleRetryMessage = async (messageId: string) => {
+    // Find the message to retry
+    const messageToRetry = messages.find((msg) => msg.id === messageId);
+    if (!messageToRetry || messageToRetry.sender !== "bot") return;
+
+    // Find the corresponding user message (the one before this bot message)
+    const messageIndex = messages.findIndex((msg) => msg.id === messageId);
+    if (messageIndex <= 0) return;
+
+    const userMessage = messages[messageIndex - 1];
+    if (!userMessage || userMessage.sender !== "user") return;
+
+    // Remove all messages after and including the message being retried
+    setMessages((prev) => prev.slice(0, messageIndex));
+    setIsLoading(true);
+
+    // Create a new loading message
+    const botLoadingMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: "",
+      sender: "bot",
+      isLoading: true,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, botLoadingMessage]);
+
+    try {
+      let response;
+
+      // Use the same logic as the original message
+      if (userMessage.contextPath && userMessage.contextType === "file") {
+        response = await fetch("/api/explain", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            filePath: userMessage.contextPath,
+            model: selectedModel,
+            content: userMessage.contextName, // This might need adjustment based on your data structure
+          }),
+        });
+      } else {
+        response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: userMessage.text,
+            model: selectedModel,
+          }),
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      const newBotMessage: ChatMessage = {
+        id: Date.now().toString(),
+        text: result.explanation || result.response,
+        sender: "bot",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botLoadingMessage.id ? newBotMessage : msg
+        )
+      );
+    } catch (error) {
+      console.error("Failed to retry AI response:", error);
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        text: "Sorry, I couldn't process your request. Please try again.",
+        sender: "bot",
+        timestamp: new Date(),
+      };
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botLoadingMessage.id ? errorMessage : msg
+        )
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleToggleExpand = (path: string) => {
     setExpandedPaths((prev) => {
       const newPaths = new Set(prev);
@@ -386,7 +479,7 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
         "w-full min-w-0 max-w-full"
       )}
     >
-      <div className="flex items-center justify-between border-b p-2 shrink-0">
+      <div className="flex items-center justify-between p-2 shrink-0">
         {" "}
         {/* Added shrink-0 */}
         <div className="flex items-center space-x-2 min-w-0">
@@ -402,55 +495,119 @@ const ChatPanel: React.FC<ChatPanelProps> = () => {
         <div className="space-y-6 p-4 min-w-0">
           {" "}
           {/* Added min-w-0 */}
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn(
-                "flex items-start gap-3 min-w-0",
-                message.sender === "user" ? "justify-end" : ""
-              )}
-            >
-              {message.sender === "bot" && (
-                <Avatar className="h-12 w-12 border">
-                  <AvatarImage src="/bot-avatar.png" alt="AI Avatar" />
-                  <AvatarFallback>AI</AvatarFallback>
-                </Avatar>
-              )}
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full min-h-[400px]">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  Use our copilot for higher productivity
+                </p>
+              </div>
+            </div>
+          ) : (
+            messages.map((message) => (
               <div
+                key={message.id}
                 className={cn(
-                  "max-w-[85%] rounded-lg px-3 py-2 text-sm break-words min-w-0 word-wrap overflow-wrap-anywhere", // Added responsive word wrapping
-                  message.sender === "user"
-                    ? "bg-primary text-primary-foreground ml-auto"
-                    : "bg-muted",
-                  message.isLoading && "animate-pulse"
+                  "flex items-start gap-3 min-w-0",
+                  message.sender === "user" ? "justify-end" : ""
                 )}
               >
-                {message.contextName && (
-                  <div className="mb-2 flex items-center gap-1.5 rounded-md border bg-background/50 p-1.5 text-xs">
-                    {message.contextType === "file" ? (
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <Folder className="h-3.5 w-3.5 shrink-0 text-accent" />
+                {message.sender === "bot" && (
+                  <Avatar
+                    className={cn(
+                      "h-12 w-12 border",
+                      message.isLoading && "animate-bounce"
                     )}
-                    <span className="truncate font-mono">
-                      {message.contextName}
-                    </span>
-                  </div>
+                  >
+                    <AvatarImage
+                      src="/cartoon-assistant.jpg"
+                      alt="Assistant Avatar"
+                      className={cn(message.isLoading && "animate-pulse")}
+                    />
+                    <AvatarFallback
+                      className={cn(message.isLoading && "animate-pulse")}
+                    >
+                      AI
+                    </AvatarFallback>
+                  </Avatar>
                 )}
-                <p className="whitespace-pre-wrap">{message.text}</p>
-                <div className="mt-1.5 text-right text-xs text-muted-foreground/80">
-                  {new Date(message.timestamp).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                <div
+                  className={cn(
+                    "rounded-lg px-3 py-2 text-sm break-words min-w-0 word-wrap overflow-wrap-anywhere", // Added responsive word wrapping
+                    message.sender === "user"
+                      ? "bg-primary text-primary-foreground ml-auto max-w-[85%] min-w-[120px]"
+                      : "bg-muted max-w-[85%]",
+                    message.isLoading && "animate-pulse"
+                  )}
+                >
+                  {message.contextName && (
+                    <div className="mb-2 flex items-center gap-1.5 rounded-md border bg-background/50 p-1.5 text-xs">
+                      {message.contextType === "file" ? (
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <Folder className="h-3.5 w-3.5 shrink-0 text-accent" />
+                      )}
+                      <span className="truncate font-mono">
+                        {message.contextName}
+                      </span>
+                    </div>
+                  )}
+                  <p className="whitespace-pre-wrap">{message.text}</p>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground/80">
+                      {new Date(message.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                    {message.sender === "bot" && !message.isLoading && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-green-100 hover:text-green-600"
+                          onClick={() => {
+                            // Handle like action
+                            console.log("Liked message:", message.id);
+                          }}
+                        >
+                          <ThumbsUp className="h-2.5 w-2.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
+                          onClick={() => {
+                            // Handle dislike action
+                            console.log("Disliked message:", message.id);
+                          }}
+                        >
+                          <ThumbsDown className="h-2.5 w-2.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-600"
+                          onClick={() => handleRetryMessage(message.id)}
+                        >
+                          <RotateCcw className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
+                {message.sender === "user" && (
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src="/cartoon-chat.jpg" alt="User Avatar" />
+                    <AvatarFallback>U</AvatarFallback>
+                  </Avatar>
+                )}
               </div>
-              {message.sender === "user" && <Avatar3D className="h-12 w-12" />}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </ScrollArea>
-      <div className="border-t p-2 space-y-2 shrink-0 min-w-0">
+      <div className="p-2 space-y-2 shrink-0 min-w-0">
         {" "}
         {/* Added shrink-0 and min-w-0 */}
         {selectedContextItem && (

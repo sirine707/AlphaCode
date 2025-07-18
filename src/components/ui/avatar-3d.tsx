@@ -4,7 +4,6 @@ import { Canvas } from "@react-three/fiber";
 import { useGLTF, OrbitControls } from "@react-three/drei";
 import { Suspense, useRef, useState } from "react";
 import * as THREE from "three";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { UserCircle2 } from "lucide-react";
 
 interface ChatAvatarModelProps {
@@ -36,16 +35,22 @@ function ChatAvatarModel({
 
 function LoadingFallback() {
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <UserCircle2 className="h-4 w-4 text-muted-foreground animate-pulse" />
+    <div
+      className="w-full h-full flex items-center justify-center"
+      style={{ background: "transparent" }}
+    >
+      <UserCircle2 className="h-6 w-6 text-muted-foreground animate-pulse" />
     </div>
   );
 }
 
 function ErrorFallback() {
   return (
-    <div className="h-8 w-8 flex items-center justify-center">
-      <UserCircle2 className="h-4 w-4 text-muted-foreground" />
+    <div
+      className="h-12 w-12 flex items-center justify-center"
+      style={{ background: "transparent" }}
+    >
+      <UserCircle2 className="h-6 w-6 text-muted-foreground" />
     </div>
   );
 }
@@ -57,8 +62,8 @@ interface Avatar3DProps {
 }
 
 export default function Avatar3D({
-  className = "h-8 w-8",
-  size = 8,
+  className = "h-12 w-12",
+  size = 12,
   interactive = false,
 }: Avatar3DProps) {
   const [hasError, setHasError] = useState(false);
@@ -68,37 +73,44 @@ export default function Avatar3D({
   }
 
   return (
-    <div className={`${className}`}>
+    <div
+      className={`${className} overflow-hidden avatar-3d-container`}
+      style={{ background: "transparent" }}
+    >
       <Canvas
         camera={{
-          position: [0, 0, 2],
-          fov: 50,
+          position: [0, 1.2, 1.5], // Close to face level
+          fov: 35, // Narrow field of view to focus on face
         }}
         gl={{
           antialias: true,
           alpha: true,
+          premultipliedAlpha: false,
+          preserveDrawingBuffer: true,
           powerPreference: "high-performance",
         }}
         style={{
           background: "transparent",
         }}
         onCreated={({ gl }) => {
-          gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          gl.setPixelRatio(Math.min(window.devicePixelRatio, 3));
+          gl.setClearColor(0x000000, 0); // Completely transparent background
         }}
         onError={() => setHasError(true)}
       >
         <Suspense fallback={<LoadingFallback />}>
-          {/* Lighting setup for the avatar */}
-          <ambientLight intensity={0.5} />
+          {/* Enhanced lighting setup for better visibility */}
+          <ambientLight intensity={0.7} />
           <directionalLight
-            position={[1, 1, 1]}
-            intensity={0.8}
+            position={[2, 2, 1]}
+            intensity={1.0}
             castShadow={false}
           />
-          <pointLight position={[-1, -1, 1]} intensity={0.3} />
+          <pointLight position={[-1, -1, 1]} intensity={0.5} />
+          <spotLight position={[0, 2, 2]} intensity={0.3} angle={0.3} />
 
-          {/* The 3D Avatar Model */}
-          <ChatAvatarModel position={[0, -0.5, 0]} scale={1.2} />
+          {/* The 3D Avatar Model - face-focused positioning */}
+          <ChatAvatarModel position={[0, -0.3, 0]} scale={2.0} />
 
           {/* Optional orbit controls for interactive mode */}
           {interactive && (

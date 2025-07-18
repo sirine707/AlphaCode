@@ -135,7 +135,7 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-10 items-center border-b border-border bg-card px-1 shadow-sm min-w-0 w-full">
+      <div className="flex h-10 items-center bg-card px-1 shadow-sm min-w-0 w-full">
         <div className="flex h-full flex-1 items-end overflow-x-auto scrollbar-thin scrollbar-thumb-border min-w-0">
           {openFiles.length === 0 ? (
             <div className="flex h-full items-center pl-3 text-xs text-muted-foreground italic">
@@ -146,9 +146,9 @@ const FileTabsBar: React.FC<FileTabsBarProps> = ({
               <div
                 key={file.path}
                 className={cn(
-                  "flex h-full cursor-pointer items-center space-x-2 border-r border-t border-border px-2 md:px-4 pt-1 text-sm min-w-0 whitespace-nowrap", // Responsive padding
+                  "flex h-full cursor-pointer items-center space-x-2 px-2 md:px-4 pt-1 text-sm min-w-0 whitespace-nowrap", // Responsive padding
                   activeFilePath === file.path
-                    ? "bg-background text-foreground shadow-[0px_-2px_5px_-2px_rgba(0,0,0,0.1)] border-primary relative after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-primary"
+                    ? "bg-background text-foreground shadow-[0px_-2px_5px_-2px_rgba(0,0,0,0.1)] relative after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-primary"
                     : "bg-card text-muted-foreground hover:bg-background/70 hover:text-foreground"
                 )}
                 title={file.name}

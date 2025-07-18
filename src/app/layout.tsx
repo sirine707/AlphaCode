@@ -5,6 +5,16 @@ import { Toaster } from "@/components/ui/toaster";
 export const metadata: Metadata = {
   title: "AlphaCode",
   description: "A modern developer interface inspired by Visual Studio Code.",
+  icons: {
+    icon: [
+      {
+        url: "/logo_alpha.png",
+        sizes: "any",
+      },
+    ],
+    shortcut: "/logo_alpha.png",
+    apple: "/logo_alpha.png",
+  },
 };
 
 export default function RootLayout({

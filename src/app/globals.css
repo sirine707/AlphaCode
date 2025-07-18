@@ -177,3 +177,13 @@ body {
 .panel-content .space-y-4 {
   min-width: 0;
 }
+
+/* 3D Avatar Canvas transparency */
+canvas {
+  background: transparent !important;
+}
+
+/* Ensure avatar containers are transparent */
+.avatar-3d-container {
+  background: transparent !important;
+}
