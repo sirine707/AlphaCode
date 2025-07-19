@@ -749,7 +749,7 @@ const FileExplorerPanel: React.FC<FileExplorerPanelProps> = ({
                 </div>
               </div>
             )}
-            
+
             {projectFiles.length > 0 ? (
               <div className="min-w-0">
                 {projectFiles.map((item) => (

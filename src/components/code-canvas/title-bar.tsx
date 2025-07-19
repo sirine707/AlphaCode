@@ -31,6 +31,8 @@ interface TitleBarProps {
   isAutocompletionEnabled?: boolean;
   onDeployClick?: () => void;
   isDeployPanelVisible?: boolean;
+  onToggleTerminal?: () => void;
+  isTerminalVisible?: boolean;
 }
 
 const TitleBar: React.FC<TitleBarProps> = ({
@@ -39,7 +41,14 @@ const TitleBar: React.FC<TitleBarProps> = ({
   isAutocompletionEnabled,
   onDeployClick,
   isDeployPanelVisible,
+  onToggleTerminal,
+  isTerminalVisible,
 }) => {
+  const handleTerminalClick = () => {
+    if (onToggleTerminal) {
+      onToggleTerminal();
+    }
+  };
   return (
     <div className="flex h-12 items-center justify-between bg-card px-4 shadow-sm border-b border-border select-none">
       <div className="flex items-center">
@@ -48,7 +57,11 @@ const TitleBar: React.FC<TitleBarProps> = ({
           {menuItems.map((item) => (
             <span
               key={item}
-              className="text-sm text-muted-foreground hover:text-foreground cursor-default"
+              className={cn(
+                "text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors",
+                item === "Terminal" && isTerminalVisible && "text-primary"
+              )}
+              onClick={item === "Terminal" ? handleTerminalClick : undefined}
             >
               {item}
             </span>

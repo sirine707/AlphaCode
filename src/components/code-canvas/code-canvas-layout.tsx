@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { Button } from "@/components/ui/button";
 import ActivityBar from "./activity-bar";
 import FileExplorerPanel, {
   type FileItem,
@@ -14,6 +15,7 @@ import SourceControlPanel from "./source-control-panel";
 import ExtensionsPanel from "./extensions-panel";
 import SettingsPanel from "./settings-panel";
 import ChatPanel from "./chat-panel";
+import Terminal from "@/components/ui/terminal";
 import { detectLanguage } from "@/lib/language-detection";
 import { File as FileIcon } from "lucide-react";
 
@@ -29,9 +31,8 @@ export type ActiveRightView = "deploy" | "chat" | null;
 const CodeCanvasLayout: React.FC = () => {
   const [activeView, setActiveView] = useState<ActiveView>("explorer");
   const [isSidePanelVisible, setIsSidePanelVisible] = useState(true);
-  const [activeRightView, setActiveRightView] =
-    useState<ActiveRightView>("chat");
-  const [isRightPanelVisible, setIsRightPanelVisible] = useState(true);
+  const [activeRightView, setActiveRightView] = useState<ActiveRightView>(null);
+  const [isRightPanelVisible, setIsRightPanelVisible] = useState(false);
   const [rightPanelDefaultSize, setRightPanelDefaultSize] = useState(30);
   const [isAutocompletionEnabled, setIsAutocompletionEnabled] = useState(false);
   const [isAutocompleteMode, setIsAutocompleteMode] = useState(false);
@@ -40,6 +41,10 @@ const CodeCanvasLayout: React.FC = () => {
   >("chat");
   const [dockerfileGenerationTrigger, setDockerfileGenerationTrigger] =
     useState(0);
+
+  // Terminal state
+  const [isTerminalVisible, setIsTerminalVisible] = useState(false);
+  const [terminalHeight, setTerminalHeight] = useState(30); // Percentage of the viewport
 
   // Responsive state for screen size
   const [isMediumScreen, setIsMediumScreen] = useState(false);
@@ -160,6 +165,10 @@ const CodeCanvasLayout: React.FC = () => {
 
   const toggleAutocompletion = useCallback(() => {
     setIsAutocompletionEnabled((prev) => !prev);
+  }, []);
+
+  const toggleTerminal = useCallback(() => {
+    setIsTerminalVisible((prev) => !prev);
   }, []);
 
   const handleOpenFile = useCallback(
@@ -332,75 +341,115 @@ const CodeCanvasLayout: React.FC = () => {
             isDeployPanelVisible={
               activeRightView === "deploy" && isRightPanelVisible
             }
+            onToggleTerminal={toggleTerminal}
+            isTerminalVisible={isTerminalVisible}
           />
         </Panel>
         <Panel defaultSize={95}>
-          <div className="flex flex-1 h-full overflow-hidden">
-            <ActivityBar
-              activeViewId={activeView}
-              onViewChange={handleViewChange}
-              isSidePanelOpen={isSidePanelVisible}
-              activeRightViewId={activeRightView}
-            />
-            <PanelGroup direction="horizontal" className="flex-1">
-              {isSidePanelVisible && (
-                <Panel
-                  defaultSize={isMediumScreen ? 18 : 20}
-                  minSize={isMediumScreen ? 12 : 15}
-                  maxSize={isMediumScreen ? 25 : 35}
-                  className="bg-card min-w-0 overflow-hidden" // Added overflow constraint classes
-                  collapsible={false}
-                >
-                  <div className="h-full w-full min-w-0 overflow-hidden">
-                    {" "}
-                    {/* Added wrapper with constraints */}
-                    {renderLeftPanel()}
-                  </div>
-                </Panel>
-              )}
-
-              {isSidePanelVisible && (
-                <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
-              )}
-
-              <Panel
-                defaultSize={
-                  isMediumScreen ? (isSidePanelVisible ? 57 : 75) : 80
-                }
-              >
-                <PanelGroup direction="horizontal">
-                  <Panel>
-                    <EditorWorkspace
-                      openFiles={openFiles}
-                      activeFilePath={activeFilePath}
-                      onCloseTab={handleCloseFile}
-                      onSwitchTab={handleSwitchTab}
-                      onFileContentChange={handleFileContentChange}
-                      isAutocompletionEnabled={isAutocompletionEnabled}
-                    />
-                  </Panel>
-                  {isRightPanelVisible && (
-                    <>
-                      <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
-                      <Panel
-                        defaultSize={rightPanelDefaultSize}
-                        minSize={isMediumScreen ? 18 : 20}
-                        maxSize={isMediumScreen ? 40 : 80}
-                        collapsible={false}
-                        className="min-w-0 overflow-hidden" // Added overflow constraint classes
-                      >
-                        <div className="h-full w-full min-w-0 overflow-hidden">
-                          {" "}
-                          {/* Added wrapper with constraints */}
-                          {renderRightPanel()}
-                        </div>
-                      </Panel>
-                    </>
+          <PanelGroup direction="vertical">
+            {/* Main content area */}
+            <Panel defaultSize={100}>
+              <div className="flex flex-1 h-full overflow-hidden">
+                <ActivityBar
+                  activeViewId={activeView}
+                  onViewChange={handleViewChange}
+                  isSidePanelOpen={isSidePanelVisible}
+                  activeRightViewId={activeRightView}
+                />
+                <PanelGroup direction="horizontal" className="flex-1">
+                  {isSidePanelVisible && (
+                    <Panel
+                      defaultSize={isMediumScreen ? 18 : 20}
+                      minSize={isMediumScreen ? 12 : 15}
+                      maxSize={isMediumScreen ? 25 : 35}
+                      className="bg-card min-w-0 overflow-hidden"
+                      collapsible={false}
+                    >
+                      <div className="h-full w-full min-w-0 overflow-hidden">
+                        {renderLeftPanel()}
+                      </div>
+                    </Panel>
                   )}
+
+                  {isSidePanelVisible && (
+                    <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
+                  )}
+
+                  <Panel
+                    defaultSize={
+                      isMediumScreen ? (isSidePanelVisible ? 57 : 75) : 80
+                    }
+                  >
+                    <PanelGroup direction="vertical">
+                      {/* Editor and right panel area */}
+                      <Panel defaultSize={isTerminalVisible ? 70 : 100}>
+                        <PanelGroup direction="horizontal">
+                          <Panel>
+                            <EditorWorkspace
+                              openFiles={openFiles}
+                              activeFilePath={activeFilePath}
+                              onCloseTab={handleCloseFile}
+                              onSwitchTab={handleSwitchTab}
+                              onFileContentChange={handleFileContentChange}
+                              isAutocompletionEnabled={isAutocompletionEnabled}
+                            />
+                          </Panel>
+                          {isRightPanelVisible && (
+                            <>
+                              <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary transition-colors" />
+                              <Panel
+                                defaultSize={rightPanelDefaultSize}
+                                minSize={isMediumScreen ? 18 : 20}
+                                maxSize={isMediumScreen ? 40 : 80}
+                                collapsible={false}
+                                className="min-w-0 overflow-hidden"
+                              >
+                                <div className="h-full w-full min-w-0 overflow-hidden">
+                                  {renderRightPanel()}
+                                </div>
+                              </Panel>
+                            </>
+                          )}
+                        </PanelGroup>
+                      </Panel>
+
+                      {/* Terminal panel at the bottom - only spans editor area */}
+                      {isTerminalVisible && (
+                        <>
+                          <PanelResizeHandle className="h-1.5 bg-border hover:bg-primary transition-colors" />
+                          <Panel
+                            defaultSize={terminalHeight}
+                            minSize={15}
+                            maxSize={60}
+                            className="bg-card border-t border-border"
+                          >
+                            <div className="h-full w-full">
+                              <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border">
+                                <h3 className="text-sm font-medium">
+                                  Terminal
+                                </h3>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={toggleTerminal}
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                              <div className="h-[calc(100%-40px)]">
+                                <Terminal />
+                              </div>
+                            </div>
+                          </Panel>
+                        </>
+                      )}
+                    </PanelGroup>
+                  </Panel>
                 </PanelGroup>
-              </Panel>
-            </PanelGroup>
-          </div>
+              </div>
+            </Panel>
+          </PanelGroup>
         </Panel>
       </PanelGroup>
     </div>
