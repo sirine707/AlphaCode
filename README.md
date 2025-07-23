@@ -14,6 +14,17 @@ AlphaCode is a modern developer interface inspired by Visual Studio Code, built 
 - **Extensible Components**: Easily add new panels, hooks, and UI elements
 - **Hosted Mode**: Push images to Docker Hub when running in cloud/hosted environments
 
+## 📸 Screenshots
+
+Below are some screenshots of AlphaCode in action:
+
+| ![File Explorer](images-alpha/cap1.png) | ![Extensions](images-alpha/cap2.png) | ![Panels](images-alpha/cap3.png) |
+|:-------------------------------:|:-----------------------------------:|:-------------------------------:|
+| Editor                          | Extensions                          | Panel                        |
+
+| ![Deploy](images-alpha/cap4.png) | ![Code Editor](images-alpha/cap5.png) | ![Chat](images-alpha/cap6.png) |
+|:-------------------------------:|:-----------------------------------:|:-------------------------------:|
+| Deploy                          | File Explorer                       | Chat                            |
 ## 🛠️ Getting Started
 
 ### Prerequisites
